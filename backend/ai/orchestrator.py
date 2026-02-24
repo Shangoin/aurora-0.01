@@ -1,6 +1,6 @@
 """
-AURORA — AI Cascade Orchestrator
-Pattern: Gemini Flash (cheapest) → Grok → OpenAI GPT-4o-mini (fallback)
+Shango Revenue Systems — AI Cascade Orchestrator
+Pattern: Gemini 2.0 Flash (free) → Groq Llama 3.3 70B (free) → GPT-4o-mini (cheap fallback)
 24-hour response cache using in-memory LRU
 """
 import os
@@ -57,14 +57,15 @@ async def _call_gemini(prompt: str, system: str, max_tokens: int = 2000) -> str:
     return response.text
 
 
-async def _call_grok(prompt: str, system: str, max_tokens: int = 2000) -> str:
+async def _call_groq(prompt: str, system: str, max_tokens: int = 2000) -> str:
+    """Groq free tier — Llama 3.3 70B, 6000 req/day, 128K context."""
     import httpx
     headers = {
         "Authorization": f"Bearer {os.environ['GROK_API_KEY']}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "grok-3-mini",
+        "model": "llama-3.3-70b-versatile",
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
@@ -73,7 +74,7 @@ async def _call_grok(prompt: str, system: str, max_tokens: int = 2000) -> str:
         "temperature": 0.2,
     }
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post("https://api.x.ai/v1/chat/completions", json=payload, headers=headers)
+        r = await client.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers)
         r.raise_for_status()
         return r.json()["choices"][0]["message"]["content"]
 
@@ -107,16 +108,12 @@ async def cascade_ai_call(
     task_type: str = "general",
     max_tokens: int = 2000,
     use_cache: bool = True,
-    force_openai: bool = False,  # Set True for critique (quality matters most)
+    force_openai: bool = False,  # Kept for API compatibility — ignored, Gemini handles all tasks
 ) -> str:
     """
-    Cost-optimized AI cascade:
-      Gemini 2.0 Flash (cheapest) ─► Grok 3 Mini ─► GPT-4o-mini
-    
-    For quality-critical tasks (critique), set force_openai=True to use Claude
-    via the Anthropic API, or GPT-4o.
+    Cost-optimized AI cascade (all free/cheap):
+      Gemini 2.0 Flash (free 15 req/min) ─► Groq Llama 3.3 70B (free 6000/day) ─► GPT-4o-mini (fallback)
     """
-    # Check cache first
     if use_cache:
         key = _cache_key(prompt, task_type)
         cached = _cache_get(key)
@@ -126,42 +123,32 @@ async def cascade_ai_call(
 
     result = None
 
-    # 1. Try Gemini Flash (cheapest — ~$0.075/M input tokens)
-    if not force_openai and os.environ.get("GEMINI_API_KEY"):
+    # 1. Gemini 2.0 Flash — free tier, 1M token context
+    if os.environ.get("GEMINI_API_KEY"):
         try:
             result = await _call_gemini(prompt, system_prompt, max_tokens)
             logger.info(f"AI cascade: Gemini served {task_type}")
         except Exception as e:
             logger.warning(f"Gemini failed for {task_type}: {e}")
 
-    # 2. Try Grok 3 Mini (backup)
+    # 2. Groq Llama 3.3 70B — free 6000 req/day, 128K context
     if not result and os.environ.get("GROK_API_KEY"):
         try:
-            result = await _call_grok(prompt, system_prompt, max_tokens)
-            logger.info(f"AI cascade: Grok served {task_type}")
+            result = await _call_groq(prompt, system_prompt, max_tokens)
+            logger.info(f"AI cascade: Groq served {task_type}")
         except Exception as e:
-            logger.warning(f"Grok failed for {task_type}: {e}")
+            logger.warning(f"Groq failed for {task_type}: {e}")
 
-    # 3. Try Anthropic Claude (for quality-critical tasks)
-    if (not result or force_openai) and os.environ.get("ANTHROPIC_API_KEY") and force_openai:
+    # 3. GPT-4o-mini — last resort fallback (~$0.15/M tokens)
+    if not result and os.environ.get("OPENAI_API_KEY"):
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-            msg = client.messages.create(
-                model="claude-sonnet-4-5",
-                max_tokens=max_tokens,
-                system=system_prompt,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            result = msg.content[0].text
-            logger.info(f"AI cascade: Claude served {task_type}")
+            result = await _call_openai(prompt, system_prompt, max_tokens)
+            logger.info(f"AI cascade: OpenAI served {task_type}")
         except Exception as e:
-            logger.warning(f"Claude failed for {task_type}: {e}")
+            logger.warning(f"OpenAI failed for {task_type}: {e}")
 
-    # 4. Fallback GPT-4o-mini
     if not result:
-        result = await _call_openai(prompt, system_prompt, max_tokens)
-        logger.info(f"AI cascade: OpenAI served {task_type}")
+        raise RuntimeError(f"All AI providers failed for task: {task_type}")
 
     if use_cache:
         _cache_set(_cache_key(prompt, task_type), result)

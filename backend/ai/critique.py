@@ -1,6 +1,6 @@
 """
-AURORA — Post-Call Critique Engine
-Uses Claude Sonnet (quality-critical) to deeply analyze every sales call.
+Shango Revenue Systems — Post-Call Critique Engine
+Uses Gemini 2.0 Flash (free) to deeply analyze every sales call.
 Score 7 categories, extract pain points, generate script improvements.
 """
 import logging
@@ -114,7 +114,6 @@ async def critique_call(
             task_type="call_critique",
             max_tokens=2500,
             use_cache=False,
-            force_openai=True,  # Quality-critical — use Claude/GPT-4o
         )
         data = parse_json_response(raw)
         return _build_critique(call_id, data)
