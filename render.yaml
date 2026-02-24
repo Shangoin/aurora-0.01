@@ -32,9 +32,7 @@ services:
       - key: GROK_API_KEY
         sync: false
       - key: OPENAI_API_KEY
-        sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
+        sync: false          # Optional — only needed if Gemini+Groq both fail
       - key: VAPI_API_KEY
         sync: false
       - key: VAPI_ASSISTANT_ID
