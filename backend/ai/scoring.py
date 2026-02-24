@@ -109,15 +109,7 @@ def should_call_immediately(score: LeadScore) -> bool:
 
 def get_call_delay_minutes(score: LeadScore) -> int:
     """
-    Time delay before initiating Vapi call:
-    HIGH = 2 min (while they're still at their desk)
-    MEDIUM = 15 min
-    LOW = queued for daily batch
+    All leads get called immediately — no delay.
+    Render free tier kills background tasks, so we call synchronously.
     """
-    delays = {
-        LeadTier.HIGH: 2,
-        LeadTier.MEDIUM: 15,
-        LeadTier.LOW: 60 * 8,   # 8 hours — batch next morning
-        LeadTier.UNSCORED: 30,
-    }
-    return delays.get(score.tier, 30)
+    return 0

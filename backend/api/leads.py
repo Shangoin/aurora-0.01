@@ -4,9 +4,9 @@ POST /api/lead  — Receive lead, score it, trigger Vapi call
 """
 import asyncio
 import logging
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException
 from models import LeadCreate, LeadResponse
-from ai.scoring import score_lead, get_call_delay_minutes
+from ai.scoring import score_lead
 from ai.improvement import trigger_call
 from db.supabase import upsert_lead, update_lead_status, log_event
 
@@ -15,7 +15,7 @@ logger = logging.getLogger("aurora.leads")
 
 
 @router.post("/lead", response_model=LeadResponse)
-async def create_lead(lead: LeadCreate, background_tasks: BackgroundTasks):
+async def create_lead(lead: LeadCreate):
     """
     Main inbound endpoint. Called by Next.js landing page.
     
@@ -55,14 +55,9 @@ async def create_lead(lead: LeadCreate, background_tasks: BackgroundTasks):
         payload={"score": score.score, "tier": score.tier.value, "reasoning": score.reasoning},
     )
 
-    # 4. Queue call in background (delayed by tier)
-    delay_minutes = get_call_delay_minutes(score)
-    background_tasks.add_task(
-        _delayed_call,
-        lead=lead,
-        lead_score_data=score,
-        delay_minutes=delay_minutes,
-    )
+    # 4. Trigger call immediately (synchronous — background tasks die on free Render)
+    if lead.phone:
+        await _delayed_call(lead=lead, lead_score_data=score, delay_minutes=0)
 
     return LeadResponse(
         id=lead_id,
