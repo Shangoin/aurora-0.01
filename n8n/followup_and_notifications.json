@@ -1,0 +1,218 @@
+{
+  "name": "AURORA — Follow-Up & Notification Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "cron-followup",
+      "name": "Check Follow-Ups Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM leads WHERE status = 'follow_up_needed' AND (next_touch_at IS NULL OR next_touch_at <= NOW()) ORDER BY score DESC LIMIT 20",
+        "options": {}
+      },
+      "id": "supabase-get-followups",
+      "name": "Get Leads Needing Follow-Up",
+      "type": "n8n-nodes-base.postgres",
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-creds",
+          "name": "Supabase DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.email }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "if-has-email",
+      "name": "Has Email?",
+      "type": "n8n-nodes-base.if",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "aurora@yourdomain.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ 'Quick question, ' + $json.name.split(' ')[0] }}",
+        "emailType": "text",
+        "text": "={{ 'Hi ' + $json.name.split(' ')[0] + ',\\n\\nI wanted to follow up on your interest in automating your outbound sales.\\n\\nYou mentioned ' + ($json.message || 'wanting to scale your outreach') + ' — I think we can help.\\n\\nWould a quick 15-minute call work this week? You can book directly: https://cal.com/aurora/demo\\n\\nBest,\\nThe AURORA Team' }}"
+      },
+      "id": "send-followup-email",
+      "name": "Send Follow-Up Email",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [900, 250],
+      "credentials": {
+        "smtp": {
+          "id": "resend-smtp",
+          "name": "Resend SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "public",
+        "table": "leads",
+        "columns": {
+          "values": [
+            {
+              "column": "next_touch_at",
+              "value": "={{ new Date(Date.now() + 72*60*60*1000).toISOString() }}"
+            },
+            {
+              "column": "follow_up_type",
+              "value": "email"
+            }
+          ]
+        },
+        "filters": {
+          "values": [
+            {
+              "column": "email",
+              "value": "={{ $json.email }}"
+            }
+          ]
+        }
+      },
+      "id": "update-next-touch",
+      "name": "Update Next Touch (72h)",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1100, 250]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "cron-daily-report",
+      "name": "Daily Report (8am Mon-Fri)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 600]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '24 hours') as new_leads, (SELECT COUNT(*) FROM calls WHERE created_at >= NOW() - INTERVAL '24 hours') as calls_yesterday, (SELECT COUNT(*) FROM leads WHERE status = 'meeting_booked' AND updated_at >= NOW() - INTERVAL '24 hours') as meetings_yesterday, (SELECT ROUND(AVG(overall_score),1) FROM calls WHERE created_at >= NOW() - INTERVAL '7 days') as avg_score_7d, (SELECT COUNT(*) FROM agent_improvements WHERE status = 'pending_review') as pending_improvements",
+        "options": {}
+      },
+      "id": "supabase-daily-stats",
+      "name": "Get Yesterday Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [460, 600]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "webhookUri": "={{ $vars.SLACK_WEBHOOK_URL }}",
+        "text": "={{ '🛰 *AURORA Daily Report*\\n\\n📥 New Leads: *' + $json.new_leads + '*\\n📞 Calls Made: *' + $json.calls_yesterday + '*\\n📅 Meetings Booked: *' + $json.meetings_yesterday + '*\\n📊 7-Day Avg Score: *' + $json.avg_score_7d + '/100*\\n🔧 Pending Improvements: *' + $json.pending_improvements + '*\\n\\n' + ($json.meetings_yesterday > 0 ? '🔥 GREAT DAY!' : '💪 Keep pushing!') }}"
+      },
+      "id": "slack-daily-report",
+      "name": "Send Slack Daily Report",
+      "type": "n8n-nodes-base.slack",
+      "position": [680, 600],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-creds",
+          "name": "Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-booked",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-meeting-booked",
+      "name": "Meeting Booked Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 900],
+      "webhookId": "aurora-meeting-booked"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "webhookUri": "={{ $vars.SLACK_WEBHOOK_URL }}",
+        "text": "={{ '📅 *MEETING BOOKED!*\\n\\n👤 ' + $json.body.name + ' from ' + $json.body.company + '\\n📧 ' + $json.body.email + '\\n🎯 Score: ' + $json.body.score + '/100\\n💰 Deal Probability: ' + $json.body.deal_probability + '%\\n😰 Pain Points: ' + ($json.body.pain_points || []).join(', ') }}"
+      },
+      "id": "slack-meeting-alert",
+      "name": "Slack Meeting Alert",
+      "type": "n8n-nodes-base.slack",
+      "position": [460, 900]
+    },
+    {
+      "parameters": {
+        "fromEmail": "aurora@yourdomain.com",
+        "toEmail": "={{ $json.body.email }}",
+        "subject": "Your AI Demo Call — Next Steps",
+        "emailType": "html",
+        "html": "={{ '<h2>Hi ' + $json.body.name.split(' ')[0] + ',</h2><p>Fantastic news — our call went well! Here is a quick summary:</p><ul><li><strong>What we discussed:</strong> ' + $json.body.one_line_summary + '</li><li><strong>Next step:</strong> Your 20-minute discovery call</li></ul><p><a href=\"https://cal.com/aurora/demo\" style=\"background:#7C3AED;color:white;padding:12px 24px;text-decoration:none;border-radius:8px\">Book Your Demo →</a></p><br><p>See you soon,<br>The AURORA Team</p>' }}"
+      },
+      "id": "email-meeting-confirmation",
+      "name": "Send Meeting Confirmation",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [680, 900]
+    }
+  ],
+  "connections": {
+    "Check Follow-Ups Every Hour": {
+      "main": [[{"node": "Get Leads Needing Follow-Up", "type": "main", "index": 0}]]
+    },
+    "Get Leads Needing Follow-Up": {
+      "main": [[{"node": "Has Email?", "type": "main", "index": 0}]]
+    },
+    "Has Email?": {
+      "main": [
+        [{"node": "Send Follow-Up Email", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Send Follow-Up Email": {
+      "main": [[{"node": "Update Next Touch (72h)", "type": "main", "index": 0}]]
+    },
+    "Daily Report (8am Mon-Fri)": {
+      "main": [[{"node": "Get Yesterday Stats", "type": "main", "index": 0}]]
+    },
+    "Get Yesterday Stats": {
+      "main": [[{"node": "Send Slack Daily Report", "type": "main", "index": 0}]]
+    },
+    "Meeting Booked Webhook": {
+      "main": [[
+        {"node": "Slack Meeting Alert", "type": "main", "index": 0},
+        {"node": "Send Meeting Confirmation", "type": "main", "index": 0}
+      ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["aurora", "follow-up", "notifications"]
+}

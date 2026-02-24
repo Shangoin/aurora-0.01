@@ -1,0 +1,151 @@
+{
+  "project": "Shango Revenue Systems",
+  "description": "Autonomous AI sales development agent — scores leads, calls them, critiques calls, self-improves.",
+  "version": "0.1.0",
+  "status": "complete",
+  "stories": [
+    {
+      "id": "aurora-001",
+      "title": "FastAPI backend scaffolding",
+      "description": "Set up FastAPI app with lifespan, CORS, route registration, health and stats endpoints.",
+      "status": "done",
+      "files": ["backend/main.py"]
+    },
+    {
+      "id": "aurora-002",
+      "title": "Pydantic data models",
+      "description": "Define all request/response models: LeadCreate, LeadScore, CallScores, CallCritique, ScriptImprovement, DashboardStats, VapiWebhookPayload.",
+      "status": "done",
+      "files": ["backend/models.py"]
+    },
+    {
+      "id": "aurora-003",
+      "title": "AI cascade orchestrator",
+      "description": "Build Gemini → Grok → Claude → OpenAI fallback chain with 24hr LRU cache and JSON parser.",
+      "status": "done",
+      "files": ["backend/ai/orchestrator.py"]
+    },
+    {
+      "id": "aurora-004",
+      "title": "AI lead scoring",
+      "description": "Score inbound leads 0-100 with tier classification using few-shot CoT prompting.",
+      "status": "done",
+      "files": ["backend/ai/scoring.py"]
+    },
+    {
+      "id": "aurora-005",
+      "title": "7-category call critique engine",
+      "description": "Critique every Vapi call across opening, discovery, rapport, objection handling, closing, naturalness, relevance.",
+      "status": "done",
+      "files": ["backend/ai/critique.py"]
+    },
+    {
+      "id": "aurora-006",
+      "title": "Autonomous self-improvement loop",
+      "description": "After 50 calls: summarize patterns → Claude meta-analysis → new prompt → push to Vapi → version history.",
+      "status": "done",
+      "files": ["backend/ai/improvement.py"]
+    },
+    {
+      "id": "aurora-007",
+      "title": "Vapi outbound call trigger",
+      "description": "trigger_call() makes POST to Vapi API with assistant ID, phone number, lead metadata, custom variables.",
+      "status": "done",
+      "files": ["backend/ai/improvement.py"]
+    },
+    {
+      "id": "aurora-008",
+      "title": "Lead ingestion API endpoint",
+      "description": "POST /api/lead: score → upsert → delayed background call trigger based on tier.",
+      "status": "done",
+      "files": ["backend/api/leads.py"]
+    },
+    {
+      "id": "aurora-009",
+      "title": "Vapi webhook handler",
+      "description": "POST /webhooks/vapi: handle end-of-call-report, critique, store call, update lead status, queue improvements, auto-trigger at 50-call threshold.",
+      "status": "done",
+      "files": ["backend/api/webhooks.py"]
+    },
+    {
+      "id": "aurora-010",
+      "title": "Supabase database layer",
+      "description": "All DB operations: leads CRUD, calls insert/query, improvements queue, prompt versions, audit log.",
+      "status": "done",
+      "files": ["backend/db/supabase.py"]
+    },
+    {
+      "id": "aurora-011",
+      "title": "Supabase schema",
+      "description": "Full PostgreSQL schema: leads, calls, agent_improvements, prompt_versions, audit_log, daily_stats. Seeded with v1 Vapi prompt.",
+      "status": "done",
+      "files": ["supabase/schema.sql"]
+    },
+    {
+      "id": "aurora-012",
+      "title": "Streamlit command center dashboard",
+      "description": "5-page dark-themed dashboard: Overview KPIs, Lead Pipeline, Call Center, Agent Brain, Settings. Plotly charts.",
+      "status": "done",
+      "files": ["dashboard/dashboard.py"]
+    },
+    {
+      "id": "aurora-013",
+      "title": "Next.js landing page",
+      "description": "Lead capture form that POSTs to backend, shows real-time score/tier on submission.",
+      "status": "done",
+      "files": ["landing/src/app/page.tsx", "landing/src/app/layout.tsx"]
+    },
+    {
+      "id": "aurora-014",
+      "title": "Docker Compose orchestration",
+      "description": "docker-compose.yml wiring up backend, dashboard, landing services.",
+      "status": "done",
+      "files": ["docker-compose.yml"]
+    },
+    {
+      "id": "aurora-015",
+      "title": "Complete test suite",
+      "description": "pytest tests covering leads, webhooks, scoring, improvement loop, health endpoint.",
+      "status": "done",
+      "files": [
+        "backend/tests/conftest.py",
+        "backend/tests/test_leads.py",
+        "backend/tests/test_webhooks.py",
+        "backend/tests/test_scoring.py",
+        "backend/tests/test_improvement.py",
+        "backend/tests/test_health.py"
+      ]
+    },
+    {
+      "id": "aurora-016",
+      "title": "Render deployment config",
+      "description": "render.yaml for one-click backend + dashboard deploy on Render.",
+      "status": "done",
+      "files": ["render.yaml"]
+    },
+    {
+      "id": "aurora-017",
+      "title": "GitHub Actions CI/CD",
+      "description": "CI: test on every push/PR. CD: auto-deploy to Render on main merge.",
+      "status": "done",
+      "files": [".github/workflows/ci.yml"]
+    },
+    {
+      "id": "aurora-018",
+      "title": "Git repo initialization and GitHub push",
+      "description": "Initialize git, commit all files, push to https://github.com/Shangoin/aurora-0.01",
+      "status": "pending_manual",
+      "notes": "Requires manual execution — see AGENTS.md for exact commands."
+    }
+  ],
+  "manual_steps_remaining": [
+    "Run git init and push to GitHub (see AGENTS.md)",
+    "Create Supabase project and run supabase/schema.sql",
+    "Create Vapi account, assistant, and phone number",
+    "Set all env vars in Render dashboard",
+    "Set WEBHOOK_BASE_URL to Render service URL after first deploy",
+    "Configure Vapi webhook URL to point to https://<render-url>/webhooks/vapi",
+    "Deploy landing page to Vercel",
+    "Add RENDER_DEPLOY_HOOK_BACKEND and RENDER_DEPLOY_HOOK_DASHBOARD to GitHub secrets for auto-deploy"
+  ]
+}

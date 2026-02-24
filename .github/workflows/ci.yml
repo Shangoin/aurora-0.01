@@ -1,0 +1,117 @@
+name: Shango Revenue Systems — CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend Tests ─────────────────────────────────────────────
+  backend-tests:
+    name: Backend Tests (Python)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest pytest-asyncio httpx
+
+      - name: Run backend tests
+        env:
+          # Provide safe test-only values so imports succeed
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_KEY: test-key
+          SUPABASE_SERVICE_KEY: test-service-key
+          GEMINI_API_KEY: test-gemini-key
+          GROK_API_KEY: test-grok-key
+          OPENAI_API_KEY: test-openai-key
+          ANTHROPIC_API_KEY: test-anthropic-key
+          VAPI_API_KEY: test-vapi-key
+          VAPI_ASSISTANT_ID: test-assistant
+          VAPI_PHONE_NUMBER_ID: test-phone
+          WEBHOOK_SECRET: test-webhook-secret
+          ADMIN_SECRET: test-admin-secret
+          WEBHOOK_BASE_URL: http://localhost:8000
+          ENV: test
+        run: python -m pytest tests/ -v --tb=short
+
+  # ── Frontend Build ────────────────────────────────────────────
+  landing-build:
+    name: Landing Page Build (Next.js)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: landing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: landing/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
+        run: npm run build
+
+  # ── Deploy to Render (main branch only) ───────────────────────
+  deploy:
+    name: Deploy to Render
+    needs: [backend-tests, landing-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render Backend Deploy
+        env:
+          RENDER_DEPLOY_HOOK_BACKEND: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_BACKEND" ]; then
+            curl -s "$RENDER_DEPLOY_HOOK_BACKEND" \
+              -X POST \
+              -H "Content-Type: application/json"
+            echo "✅ Render backend deploy triggered"
+          else
+            echo "⚠️  RENDER_DEPLOY_HOOK_BACKEND secret not set — skipping auto-deploy"
+          fi
+
+      - name: Trigger Render Dashboard Deploy
+        env:
+          RENDER_DEPLOY_HOOK_DASHBOARD: ${{ secrets.RENDER_DEPLOY_HOOK_DASHBOARD }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_DASHBOARD" ]; then
+            curl -s "$RENDER_DEPLOY_HOOK_DASHBOARD" \
+              -X POST \
+              -H "Content-Type: application/json"
+            echo "✅ Render dashboard deploy triggered"
+          else
+            echo "⚠️  RENDER_DEPLOY_HOOK_DASHBOARD secret not set — skipping"
+          fi

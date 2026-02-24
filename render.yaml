@@ -1,0 +1,77 @@
+# ─────────────────────────────────────────────────────────────
+# Shango Revenue Systems — Render.com Deployment Config
+# ─────────────────────────────────────────────────────────────
+# Deploy: Connect this repo to Render, it will auto-detect this file.
+# Docs: https://render.com/docs/yaml-spec
+
+services:
+  # ── FastAPI Backend ──────────────────────────────────────────
+  - type: web
+    name: srs-backend
+    runtime: python
+    repo: https://github.com/Shangoin/aurora-0.01   # UPDATE: your actual repo URL
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENV
+        value: production
+      - key: PORT
+        value: "8000"
+      - key: SUPABASE_URL
+        sync: false          # Set manually in Render dashboard
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROK_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: VAPI_API_KEY
+        sync: false
+      - key: VAPI_ASSISTANT_ID
+        sync: false
+      - key: VAPI_PHONE_NUMBER_ID
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false          # e.g. https://aurora.yoursite.com,https://yourdashboard.streamlit.app
+      - key: WEBHOOK_BASE_URL
+        sync: false          # Will be https://srs-backend.onrender.com after deploy
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+
+  # ── Streamlit Dashboard ───────────────────────────────────────
+  - type: web
+    name: srs-dashboard
+    runtime: python
+    repo: https://github.com/Shangoin/aurora-0.01   # UPDATE: your actual repo URL
+    branch: main
+    rootDir: dashboard
+    buildCommand: pip install streamlit plotly supabase pandas requests
+    startCommand: streamlit run dashboard.py --server.port $PORT --server.address 0.0.0.0
+    autoDeploy: true
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: BACKEND_URL
+        sync: false          # Set to https://srs-backend.onrender.com
+      - key: ADMIN_SECRET
+        sync: false
