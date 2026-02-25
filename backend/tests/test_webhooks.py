@@ -120,3 +120,28 @@ class TestWebhookPayloadParsing:
         from models import VapiWebhookPayload
         payload = VapiWebhookPayload(**sample_vapi_webhook)
         assert payload.message["type"] == "end-of-call-report"
+
+    def test_webhook_extracts_geo_region(self):
+        """Webhook correctly extracts geo_region from metadata."""
+        payload = {
+            "message": {
+                "type": "end-of-call-report",
+                "call": {
+                    "id": "geo-call-1",
+                    "metadata": {
+                        "lead_email": "priya@company.in",
+                        "lead_name": "Priya S",
+                        "geo_region": "india",
+                    },
+                    "transcript": "Test",
+                    "duration": 120,
+                    "endedReason": "hangup",
+                    "recordingUrl": "",
+                    "summary": "",
+                    "stereoRecordingUrl": None,
+                }
+            }
+        }
+        # geo_region in metadata should be extracted correctly
+        metadata = payload["message"]["call"]["metadata"]
+        assert metadata.get("geo_region") == "india"

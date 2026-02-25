@@ -105,17 +105,18 @@ class TestImprovementCycle:
 
 
 class TestCritiqueEngine:
-    """Tests for the 7-category call critique engine."""
+    """Tests for the 9-category call critique engine."""
 
     @pytest.mark.asyncio
-    async def test_critique_returns_all_categories(self, sample_critique_response):
-        """critique_call returns scores for all 7 categories."""
+    async def test_critique_returns_all_9_categories(self, sample_critique_response):
+        """critique_call returns scores for all 9 categories including pacing and silence_handling."""
         mock_ai_json = """{
             "overall_score": 78,
             "category_scores": {
                 "opening": 85, "discovery": 80, "rapport": 75,
                 "objection_handling": 70, "closing": 82,
-                "naturalness": 78, "relevance": 79
+                "naturalness": 78, "relevance": 79,
+                "pacing": 72, "silence_handling": 68
             },
             "pain_points": ["slow follow-up"],
             "meeting_booked": false,
@@ -142,6 +143,8 @@ class TestCritiqueEngine:
         assert result.overall_score == 78
         assert result.category_scores.opening == 85
         assert result.category_scores.closing == 82
+        assert result.category_scores.pacing == 72
+        assert result.category_scores.silence_handling == 68
         assert len(result.pain_points) > 0
 
     @pytest.mark.asyncio
@@ -149,7 +152,7 @@ class TestCritiqueEngine:
         """critique_call handles empty transcript gracefully."""
         mock_minimal_json = """{
             "overall_score": 10,
-            "category_scores": {"opening":10,"discovery":10,"rapport":10,"objection_handling":10,"closing":10,"naturalness":10,"relevance":10},
+            "category_scores": {"opening":10,"discovery":10,"rapport":10,"objection_handling":10,"closing":10,"naturalness":10,"relevance":10,"pacing":10,"silence_handling":10},
             "pain_points": [],
             "meeting_booked": false,
             "should_follow_up": false,

@@ -12,13 +12,14 @@ logger = logging.getLogger("aurora.critique")
 CRITIQUE_SYSTEM = """You are an elite sales call analyst and coach with 20 years of experience training SDR teams at companies like Salesforce, Gong, and Outreach.
 
 Analyze AI SDR call transcripts with surgical precision. Your job is to:
-1. Score 7 performance dimensions (0-100 each)
+1. Score 9 performance dimensions (0-100 each) including pacing and silence handling
 2. Extract actionable pain points from the prospect
-3. Identify specific script improvements
+3. Identify specific script improvements with exact example scripts
 4. Determine next best action
 
 Be honest and precise. A score of 70+ means genuinely good performance.
-Score below 40 means significant problems need fixing immediately."""
+Score below 40 means significant problems need fixing immediately.
+Pacing and silence are often the difference between a 65 and 85 score."""
 
 CRITIQUE_PROMPT_TEMPLATE = """Analyze this AI SDR call transcript:
 
@@ -35,22 +36,24 @@ CALL TRANSCRIPT:
 CALL DURATION: {duration_seconds} seconds
 CALL ID: {call_id}
 
-Score these 7 dimensions (0-100) and return valid JSON only:
+Score these 9 dimensions (0-100) and return valid JSON only:
 
 {{
   "scores": {{
-    "opening": <score>,        // First impression, hook, permission to continue
-    "discovery": <score>,      // Pain uncovering, question quality, listening
-    "rapport": <score>,        // Conversational, human, not robotic
+    "opening": <score>,            // First impression, hook, permission to continue
+    "discovery": <score>,          // Pain uncovering, question quality, listening
+    "rapport": <score>,            // Conversational, human, not robotic
     "objection_handling": <score>, // Graceful, empathetic, redirects well
-    "closing": <score>,        // Clear ask, calendar-focused, specific
-    "naturalness": <score>,    // Sounds human, not scripted
-    "relevance": <score>,      // Responses tied to what prospect actually said
-    "overall": <score>         // Weighted average
+    "closing": <score>,            // Clear ask, calendar-focused, specific
+    "naturalness": <score>,        // Sounds human, not scripted
+    "relevance": <score>,          // Responses tied to what prospect actually said
+    "pacing": <score>,             // Conversation tempo: not too fast/slow, comfortable rhythm
+    "silence_handling": <score>,   // Uses pauses effectively, doesn't rush to fill every gap
+    "overall": <score>             // Weighted average across all 9 dimensions
   }},
   "meeting_booked": <true|false>,
   "should_follow_up": <true|false>,
-  "follow_up_strategy": "<email|call|sms|none>",
+  "follow_up_strategy": "<email|call|whatsapp|sms|none>",
   "estimated_deal_probability": <0-100>,
   "one_line_summary": "<what happened in 1 sentence>",
   "coach_verdict": "<what the AI did well and what to fix — 2-3 sentences>",
@@ -133,6 +136,8 @@ def _build_critique(call_id: str, data: dict) -> CallCritique:
         closing=_clamp(scores_raw.get("closing", 50)),
         naturalness=_clamp(scores_raw.get("naturalness", 50)),
         relevance=_clamp(scores_raw.get("relevance", 50)),
+        pacing=_clamp(scores_raw.get("pacing", 50)),
+        silence_handling=_clamp(scores_raw.get("silence_handling", 50)),
         overall=_clamp(scores_raw.get("overall", 50)),
     )
 
@@ -167,7 +172,7 @@ def _build_critique(call_id: str, data: dict) -> CallCritique:
         one_line_summary=data.get("one_line_summary", ""),
         meeting_booked=bool(data.get("meeting_booked", False)),
         should_follow_up=bool(data.get("should_follow_up", True)),
-        follow_up_strategy=data.get("follow_up_strategy", "email"),
+        follow_up_strategy=data.get("follow_up_strategy", "email") if data.get("follow_up_strategy") in ("email", "call", "whatsapp", "sms", "none") else "email",
         estimated_deal_probability=_clamp(data.get("estimated_deal_probability", 0)),
         prospect_analysis=prospect,
         action_items=data.get("action_items", []),
@@ -183,6 +188,7 @@ def _empty_critique(call_id: str, reason: str) -> CallCritique:
         overall_score=0,
         one_line_summary=reason,
         coach_verdict=reason,
+        prospect_analysis=ProspectAnalysis(),
     )
 
 

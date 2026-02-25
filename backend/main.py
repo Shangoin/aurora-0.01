@@ -1,6 +1,6 @@
 """
-AURORA 0.01% — FastAPI Main Application
-Autonomous AI Sales Agent — Zero-touch lead-to-meeting pipeline
+AURORA 1.0 — FastAPI Main Application
+Autonomous AI SDR: 6-LLM Cascade · MARS Reflective Loop · Geo-Routing
 """
 import os
 import logging
@@ -23,21 +23,34 @@ logger = logging.getLogger("aurora")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🛰  AURORA booting up...")
-    logger.info(f"  Gemini:  {'✓' if os.environ.get('GEMINI_API_KEY') else '✗'}")
-    logger.info(f"  Grok:    {'✓' if os.environ.get('GROK_API_KEY') else '✗'}")
-    logger.info(f"  OpenAI:  {'✓' if os.environ.get('OPENAI_API_KEY') else '✗'}")
-    logger.info(f"  Claude:  {'✓' if os.environ.get('ANTHROPIC_API_KEY') else '✗'}")
-    logger.info(f"  Vapi:    {'✓' if os.environ.get('VAPI_API_KEY') else '✗ (calls disabled)'}")
-    logger.info(f"  Supabase:{'✓' if os.environ.get('SUPABASE_URL') else '✗'}")
+    # Start nurture scheduler
+    from nurture.scheduler import start_scheduler, stop_scheduler
+    await start_scheduler()
+    logger.info("🛰  AURORA 1.0 booting up — 6-LLM · MARS · Geo-Routing · Nurture")
+    # 6-provider cascade
+    logger.info(f"  Gemini:    {'✓' if os.environ.get('GEMINI_API_KEY') else '✗'}")
+    logger.info(f"  Groq:      {'✓' if os.environ.get('GROK_API_KEY') else '✗'}")
+    logger.info(f"  Cerebras:  {'✓' if os.environ.get('CEREBRAS_API_KEY') else '✗'}")
+    logger.info(f"  Mistral:   {'✓' if os.environ.get('MISTRAL_API_KEY') else '✗'}")
+    logger.info(f"  OpenRouter:{'✓' if os.environ.get('OPENROUTER_API_KEY') else '✗'}")
+    logger.info(f"  OpenAI:    {'✓' if os.environ.get('OPENAI_API_KEY') else '✗ (last resort)'}")
+    logger.info(f"  Claude:    {'✓' if os.environ.get('ANTHROPIC_API_KEY') else '✗'}")
+    # Vapi geo numbers
+    logger.info(f"  Vapi:      {'✓' if os.environ.get('VAPI_API_KEY') else '✗ (calls disabled)'}")
+    logger.info(f"  Vapi IN:   {'✓' if os.environ.get('VAPI_PHONE_NUMBER_ID_IN') else '–'}")
+    logger.info(f"  Vapi US:   {'✓' if os.environ.get('VAPI_PHONE_NUMBER_ID_US') else '–'}")
+    logger.info(f"  Vapi UK:   {'✓' if os.environ.get('VAPI_PHONE_NUMBER_ID_UK') else '–'}")
+    logger.info(f"  Supabase:  {'✓' if os.environ.get('SUPABASE_URL') else '✗'}")
     yield
+    from nurture.scheduler import stop_scheduler
+    await stop_scheduler()
     logger.info("AURORA shutting down")
 
 # ─── App ──────────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="AURORA 0.01% — AI Sales Agent API",
-    description="Autonomous AI SDR: Lead → Score → Call → Critique → Improve",
+    title="AURORA 1.0 — AI SDR API",
+    description="Autonomous AI SDR: 6-LLM Cascade · MARS Reflective Loop · Geo-Routing · 9-Category Critique",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
@@ -59,33 +72,46 @@ app.add_middleware(
 
 from api.leads import router as leads_router
 from api.webhooks import router as webhooks_router
+from api.nurture import router as nurture_router
 
 app.include_router(leads_router)
 app.include_router(webhooks_router)
+app.include_router(nurture_router)
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
-    from db.supabase import get_supabase
+    import db.supabase as _supabase
     try:
-        sb = get_supabase()
+        sb = _supabase.get_supabase_client()
         sb.table("leads").select("id").limit(1).execute()
         db_ok = True
     except Exception:
         db_ok = False
 
+    from nurture.scheduler import is_scheduler_running
     return {
         "status": "ok" if db_ok else "degraded",
         "db": "connected" if db_ok else "error",
         "ai_cascade": {
             "gemini": bool(os.environ.get("GEMINI_API_KEY")),
-            "grok": bool(os.environ.get("GROK_API_KEY")),
+            "groq": bool(os.environ.get("GROK_API_KEY")),
+            "cerebras": bool(os.environ.get("CEREBRAS_API_KEY")),
+            "mistral": bool(os.environ.get("MISTRAL_API_KEY")),
+            "openrouter": bool(os.environ.get("OPENROUTER_API_KEY")),
             "openai": bool(os.environ.get("OPENAI_API_KEY")),
             "anthropic": bool(os.environ.get("ANTHROPIC_API_KEY")),
         },
         "vapi": bool(os.environ.get("VAPI_API_KEY")),
+        "geo_numbers": {
+            "in": bool(os.environ.get("VAPI_PHONE_NUMBER_ID_IN")),
+            "us": bool(os.environ.get("VAPI_PHONE_NUMBER_ID_US")),
+            "uk": bool(os.environ.get("VAPI_PHONE_NUMBER_ID_UK")),
+            "global": bool(os.environ.get("VAPI_PHONE_NUMBER_ID_GLOBAL")),
+        },
+        "nurture_scheduler": is_scheduler_running(),
     }
 
 
@@ -120,6 +146,15 @@ async def get_stats():
         "pending_improvements": len(improvements.data or []),
         "active_prompt_version": prompt.data[0]["version"] if prompt.data else 1,
     }
+
+
+# ─── Provider Stats ──────────────────────────────────────────────────────────
+
+@app.get("/api/provider-stats")
+async def provider_stats():
+    """Per-provider LLM usage: calls, failures, avg latency (ms). Resets on restart."""
+    from ai.orchestrator import get_provider_stats
+    return get_provider_stats()
 
 
 if __name__ == "__main__":

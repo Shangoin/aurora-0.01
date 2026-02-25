@@ -1,6 +1,6 @@
 """
 Shango Revenue Systems — Streamlit Command Center
-5-page dashboard: Overview | Pipeline | Calls | Agent Brain | Settings
+6-page dashboard: Overview | Pipeline | Calls | Geo | Agent Brain | Settings
 """
 import streamlit as st
 import pandas as pd
@@ -113,12 +113,48 @@ def fetch_prompts():
     r = sb.table("prompt_versions").select("*").order("version", desc=True).limit(10).execute()
     return pd.DataFrame(r.data or [])
 
+@st.cache_data(ttl=60)
+def fetch_mars_lessons():
+    r = sb.table("mars_lessons").select("*").order("mcts_reward", desc=True).limit(50).execute()
+    return pd.DataFrame(r.data or [])
+
+@st.cache_data(ttl=30)
+def fetch_provider_stats():
+    import requests, os
+    backend = st.secrets.get("BACKEND_URL", os.environ.get("BACKEND_URL", "http://localhost:8000"))
+    try:
+        r = requests.get(f"{backend}/api/provider-stats", timeout=5)
+        return r.json() if r.ok else {}
+    except Exception:
+        return {}
+
+@st.cache_data(ttl=30)
+def fetch_nurture_sequences():
+    r = sb.table("nurture_sequences").select("*").order("created_at", desc=True).limit(100).execute()
+    df = pd.DataFrame(r.data or [])
+    if not df.empty and "created_at" in df.columns:
+        df["created_at"] = pd.to_datetime(df["created_at"])
+    return df
+
+@st.cache_data(ttl=30)
+def fetch_health():
+    import requests, os
+    backend = st.secrets.get("BACKEND_URL", os.environ.get("BACKEND_URL", "http://localhost:8000"))
+    try:
+        r = requests.get(f"{backend}/health", timeout=5)
+        return r.json() if r.ok else {}
+    except Exception:
+        return {}
+
 
 # ─── Load Data ────────────────────────────────────────────────────────────────
 leads_df = fetch_leads()
 calls_df = fetch_calls()
 improvements_df = fetch_improvements()
 prompts_df = fetch_prompts()
+mars_df = fetch_mars_lessons()
+provider_stats = fetch_provider_stats()
+nurture_df = fetch_nurture_sequences()
 
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -128,7 +164,8 @@ with st.sidebar:
     st.markdown("---")
     page = st.radio(
         "Navigate",
-        ["📊 Overview", "👥 Pipeline", "📞 Call Center", "🧠 Agent Brain", "⚙️ Settings"],
+        ["📊 Overview", "👥 Pipeline", "📞 Call Center", "🧠 Agent Brain",
+         "🌱 Nurture", "🌍 Geo Analytics", "⚙️ Settings"],
         index=0
     )
     st.markdown("---")
@@ -141,6 +178,10 @@ with st.sidebar:
     if not calls_df.empty and "overall_score" in calls_df.columns:
         av = calls_df["overall_score"].mean()
         st.metric("Avg Call Score", f"{av:.0f}/100")
+    if not mars_df.empty:
+        st.metric("MARS Lessons", len(mars_df))
+    active_nurture = len(nurture_df[nurture_df["is_active"] == True]) if not nurture_df.empty and "is_active" in nurture_df.columns else (len(nurture_df) if not nurture_df.empty else 0)
+    st.metric("Active Nurture Seqs", active_nurture)
 
     st.markdown("---")
     if st.button("♻️ Refresh", use_container_width=True):
@@ -323,7 +364,8 @@ elif page == "📞 Call Center":
 
         # Category scores radar
         cat_cols = ["opening_score","discovery_score","rapport_score",
-                    "objection_score","closing_score","naturalness_score","relevance_score"]
+                    "objection_score","closing_score","naturalness_score","relevance_score",
+                    "pacing_score","silence_score"]
         available = [c for c in cat_cols if c in calls_df.columns]
         if available:
             avgs = {c.replace("_score","").replace("_"," ").title(): calls_df[c].mean()
@@ -355,6 +397,226 @@ elif page == "📞 Call Center":
                 if call.get("transcript"):
                     with st.expander("📄 Transcript"):
                         st.text(call["transcript"][:3000])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PAGE 5: NURTURE SEQUENCES
+# ─────────────────────────────────────────────────────────────────────────────
+elif page == "🌱 Nurture":
+    st.title("🌱 Nurture Sequences")
+    st.caption("Automated multi-step follow-up cadences triggered after calls without a booked meeting")
+
+    # ── Summary metrics ───────────────────────────────────────────────────
+    total_seqs = len(nurture_df)
+    active_seqs = len(nurture_df[nurture_df["is_active"] == True]) if not nurture_df.empty and "is_active" in nurture_df.columns else 0
+    completed_seqs = len(nurture_df[nurture_df["status"] == "completed"]) if not nurture_df.empty and "status" in nurture_df.columns else 0
+    paused_seqs = len(nurture_df[nurture_df["status"] == "paused"]) if not nurture_df.empty and "status" in nurture_df.columns else 0
+
+    n1, n2, n3, n4 = st.columns(4)
+    for col, val, label in [
+        (n1, total_seqs, "Total Sequences"),
+        (n2, active_seqs, "Active"),
+        (n3, completed_seqs, "Completed"),
+        (n4, paused_seqs, "Paused"),
+    ]:
+        with col:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{val}</div>
+                <div class="metric-label">{label}</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    if nurture_df.empty:
+        st.info("No nurture sequences yet — they're created automatically after calls where no meeting is booked.")
+    else:
+        # ── Filters ───────────────────────────────────────────────────────
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            status_opts = ["all"] + (nurture_df["status"].dropna().unique().tolist() if "status" in nurture_df.columns else [])
+            status_filter = st.selectbox("Status", status_opts)
+        with c2:
+            geo_opts = ["all"] + (nurture_df["geo_region"].dropna().unique().tolist() if "geo_region" in nurture_df.columns else [])
+            geo_filter = st.selectbox("Region", geo_opts)
+        with c3:
+            score_min = st.slider("Min Lead Score", 0, 100, 0)
+
+        filtered_nurture = nurture_df.copy()
+        if status_filter != "all" and "status" in filtered_nurture.columns:
+            filtered_nurture = filtered_nurture[filtered_nurture["status"] == status_filter]
+        if geo_filter != "all" and "geo_region" in filtered_nurture.columns:
+            filtered_nurture = filtered_nurture[filtered_nurture["geo_region"] == geo_filter]
+        if "lead_score" in filtered_nurture.columns:
+            filtered_nurture = filtered_nurture[filtered_nurture["lead_score"].fillna(0) >= score_min]
+
+        st.caption(f"Showing {len(filtered_nurture)} sequences")
+
+        # ── Sequence cards with step progress ──────────────────────────
+        for _, seq in filtered_nurture.iterrows():
+            status = seq.get("status", "active")
+            lead_email = seq.get("lead_email", "?")
+            lead_name = seq.get("lead_name", "")
+            lead_company = seq.get("lead_company", "")
+            lead_score = seq.get("lead_score", 0)
+            geo = seq.get("geo_region", "global")
+            created = str(seq.get("created_at", ""))[:16]
+
+            # Parse steps from JSONB
+            steps = seq.get("steps") or []
+            if isinstance(steps, str):
+                try:
+                    steps = json.loads(steps)
+                except Exception:
+                    steps = []
+
+            total_steps = len(steps)
+            done_steps = sum(1 for s in steps if isinstance(s, dict) and s.get("status") in ("sent", "completed", "called"))
+            pct = int(done_steps / max(1, total_steps) * 100)
+
+            # Status colours
+            status_color = {"active": "#10B981", "completed": "#3B82F6",
+                            "paused": "#F59E0B", "cancelled": "#EF4444"}.get(status, "#6B7280")
+            icon = {"active": "🟢", "completed": "✅", "paused": "⏸️", "cancelled": "❌"}.get(status, "⚪")
+
+            header_label = f"{icon} {lead_name or lead_email} — {lead_company}  |  Score {lead_score}  |  {geo.upper()}  |  {done_steps}/{total_steps} steps  |  {status.upper()}"
+
+            with st.expander(header_label):
+                # Progress bar
+                st.markdown(f"""
+                <div style="margin-bottom:12px">
+                    <div style="display:flex;justify-content:space-between;color:#9CA3AF;font-size:0.8rem;margin-bottom:4px">
+                        <span>Step progress</span><span>{pct}% ({done_steps}/{total_steps})</span>
+                    </div>
+                    <div class="score-bar">
+                        <div class="score-fill" style="width:{pct}%;background:linear-gradient(90deg,#7C3AED,#3B82F6)"></div>
+                    </div>
+                </div>""", unsafe_allow_html=True)
+
+                # Meta info
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.write(f"📧 {lead_email}")
+                    st.write(f"📅 Created: {created}")
+                    pain = seq.get("pain_points")
+                    if pain:
+                        if isinstance(pain, str):
+                            try: pain = json.loads(pain)
+                            except: pass
+                        st.write(f"💡 Pain: {', '.join(pain) if isinstance(pain, list) else pain}")
+                with col_b:
+                    st.write(f"🌍 Region: {geo.title()}")
+                    st.write(f"📝 Summary: {seq.get('call_summary', 'N/A')}")
+                    st.write(f"📌 Status: **{status}**")
+
+                # Step-by-step detail
+                if steps:
+                    st.markdown("**Sequence Steps:**")
+                    for i, step in enumerate(steps):
+                        if not isinstance(step, dict):
+                            continue
+                        step_status = step.get("status", "pending")
+                        step_type = step.get("type", "message")
+                        step_day = step.get("day", i + 1)
+                        step_color = {"sent": "#10B981", "completed": "#3B82F6",
+                                      "called": "#7C3AED", "failed": "#EF4444"
+                                      }.get(step_status, "#6B7280")
+                        step_icon = {"sent": "✅", "completed": "✅", "called": "📞",
+                                     "pending": "⏳", "failed": "❌"}.get(step_status, "⏳")
+                        subject = step.get("subject") or step.get("message", "")[:60]
+                        st.markdown(f"""
+                        <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;
+                                    background:rgba(255,255,255,0.025);border-radius:6px;margin:3px 0;
+                                    border-left:3px solid {step_color}">
+                            <span>{step_icon}</span>
+                            <span style="color:#9CA3AF;font-size:0.78rem">Day {step_day}</span>
+                            <span style="color:#D1D5DB;font-size:0.85rem">【{step_type.upper()}】{subject}</span>
+                            <span style="margin-left:auto;color:{step_color};font-size:0.75rem">{step_status.upper()}</span>
+                        </div>""", unsafe_allow_html=True)
+
+                # Pause / Resume button
+                btn_col1, btn_col2 = st.columns([1, 5])
+                seq_id = seq.get("id")
+                if seq_id:
+                    with btn_col1:
+                        if status == "active":
+                            if st.button("⏸ Pause", key=f"pause_{seq_id}"):
+                                sb.table("nurture_sequences").update({"status": "paused", "is_active": False}).eq("id", seq_id).execute()
+                                st.cache_data.clear()
+                                st.rerun()
+                        elif status == "paused":
+                            if st.button("▶ Resume", key=f"resume_{seq_id}"):
+                                sb.table("nurture_sequences").update({"status": "active", "is_active": True}).eq("id", seq_id).execute()
+                                st.cache_data.clear()
+                                st.rerun()
+
+        # ── Sequence distribution chart ────────────────────────────────
+        st.markdown("---")
+        if not nurture_df.empty and "status" in nurture_df.columns:
+            col_chart1, col_chart2 = st.columns(2)
+            with col_chart1:
+                st.subheader("Sequences by Status")
+                sc = nurture_df["status"].value_counts()
+                fig_sc = px.pie(values=sc.values, names=sc.index, hole=0.4,
+                                color_discrete_sequence=["#10B981","#3B82F6","#F59E0B","#EF4444"])
+                fig_sc.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white",
+                                     legend=dict(bgcolor="rgba(0,0,0,0)"))
+                st.plotly_chart(fig_sc, use_container_width=True)
+            with col_chart2:
+                if "geo_region" in nurture_df.columns:
+                    st.subheader("Sequences by Region")
+                    rc = nurture_df["geo_region"].fillna("global").value_counts()
+                    fig_rc = px.bar(x=rc.index, y=rc.values, text=rc.values,
+                                    color=rc.index,
+                                    color_discrete_map={"india":"#F59E0B","us":"#3B82F6",
+                                                        "uk":"#EF4444","global":"#8B5CF6"})
+                    fig_rc.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                         font_color="white", showlegend=False)
+                    st.plotly_chart(fig_rc, use_container_width=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PAGE 6: GEO ANALYTICS
+# ─────────────────────────────────────────────────────────────────────────────
+elif page == "🌍 Geo Analytics":
+    st.title("🌍 Geo Analytics — Regional Performance")
+
+    if calls_df.empty or "geo_region" not in calls_df.columns:
+        st.info("No geo data yet. Calls with geo routing will populate this page.")
+    else:
+        geo = calls_df.copy()
+        geo["geo_region"] = geo["geo_region"].fillna("global")
+
+        st.subheader("Calls by Region")
+        region_counts = geo["geo_region"].value_counts().reset_index()
+        region_counts.columns = ["region", "calls"]
+        fig_geo = px.bar(region_counts, x="region", y="calls",
+                         color="region",
+                         color_discrete_map={"india": "#F59E0B", "us": "#3B82F6",
+                                             "uk": "#EF4444", "global": "#8B5CF6"},
+                         text="calls")
+        fig_geo.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                              font_color="white", showlegend=False)
+        st.plotly_chart(fig_geo, use_container_width=True)
+
+        st.subheader("Performance by Region")
+        geo_stats = []
+        for region, grp in geo.groupby("geo_region"):
+            calls_n = len(grp)
+            meetings = int(grp["meeting_booked"].sum()) if "meeting_booked" in grp.columns else 0
+            avg_sc = grp["overall_score"].mean() if "overall_score" in grp.columns else 0
+            answered = int((grp["duration_seconds"].fillna(0) > 30).sum()) if "duration_seconds" in grp.columns else 0
+            geo_stats.append({
+                "Region": region.title(),
+                "Calls": calls_n,
+                "Answered": answered,
+                "Answer Rate": f"{answered/max(1,calls_n)*100:.0f}%",
+                "Meetings": meetings,
+                "Meeting Rate": f"{meetings/max(1,calls_n)*100:.0f}%",
+                "Avg Score": f"{avg_sc:.0f}/100",
+            })
+        if geo_stats:
+            st.dataframe(pd.DataFrame(geo_stats), use_container_width=True, hide_index=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -414,13 +676,100 @@ elif page == "🧠 Agent Brain":
     else:
         st.info("No pending improvements — either no calls yet or all applied.")
 
+    # ── MARS Lesson Viewer ───────────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("🥈 MARS Lessons (MCTS-ranked)")
+    st.caption("Lessons extracted every 25 calls. Sorted by MCTS reward (highest value first).")
+    if mars_df.empty:
+        st.info("No MARS lessons yet — lessons appear after the first 25-call cycle.")
+    else:
+        type_colors = {"pattern": "#7C3AED", "objection": "#EF4444",
+                       "insight": "#3B82F6", "geo": "#F59E0B"}
+        active_lessons = mars_df[mars_df.get("is_active", pd.Series([True]*len(mars_df))).fillna(True)] \
+            if "is_active" in mars_df.columns else mars_df
+        for _, lesson in active_lessons.iterrows():
+            l_type = lesson.get("lesson_type", "insight")
+            color = type_colors.get(l_type, "#6B7280")
+            reward = lesson.get("mcts_reward", 0)
+            geo_tag = f" · 🌍 {lesson['geo_region']}" if lesson.get("geo_region") else ""
+            with st.expander(
+                f"📌 [{l_type.upper()}{geo_tag}] reward={reward:.4f} · Δscore={lesson.get('avg_score_delta',0):.1f} · {lesson.get('source_calls',0)} calls"
+            ):
+                st.markdown(
+                    f'<div style="padding:10px;background:rgba(255,255,255,0.03);'
+                    f'border-radius:8px;border-left:3px solid {color}">{lesson.get("content","")}</div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button("Deactivate", key=f"deact_{lesson.get('id')}"):
+                    sb.table("mars_lessons").update({"is_active": False}).eq("id", lesson["id"]).execute()
+                    st.cache_data.clear()
+                    st.rerun()
+
+    # ── Provider Stats ────────────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("🤖 AI Provider Stats (session)")
+    if not provider_stats:
+        st.info("Provider stats unavailable — check backend is running and /api/provider-stats is reachable.")
+    else:
+        prov_rows = []
+        for name, data in provider_stats.items():
+            calls_n = data.get("calls", 0)
+            fails = data.get("failures", 0)
+            avg_ms = data.get("avg_ms", 0)
+            prov_rows.append({
+                "Provider": name,
+                "Calls": calls_n,
+                "Failures": fails,
+                "Success Rate": f"{(calls_n - fails) / max(1, calls_n) * 100:.0f}%",
+                "Avg Latency (ms)": f"{avg_ms:.0f}",
+            })
+        if prov_rows:
+            st.dataframe(pd.DataFrame(prov_rows), use_container_width=True, hide_index=True)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PAGE 5: SETTINGS
+# PAGE 7: SETTINGS + HEALTH CHECK
 # ─────────────────────────────────────────────────────────────────────────────
 elif page == "⚙️ Settings":
     st.title("⚙️ Settings")
 
+    # ── Health Check ─────────────────────────────────────────────────────
+    st.subheader("🔍 System Health")
+    if st.button("Run Health Check", use_container_width=False):
+        st.cache_data.clear()  # force fresh
+    health = fetch_health()
+    if not health:
+        st.warning("Backend unreachable — check BACKEND_URL in secrets.")
+    else:
+        h_status = health.get("status", "unknown")
+        h_color = "#10B981" if h_status == "ok" else "#F59E0B"
+        st.markdown(f"""
+        <div style="display:inline-flex;align-items:center;gap:10px;padding:10px 18px;
+                    background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:16px;
+                    border:1px solid {h_color}44">
+            <span style="font-size:1.4rem">{'✅' if h_status == 'ok' else '⚠️'}</span>
+            <span style="font-size:1.1rem;font-weight:700;color:{h_color}">{h_status.upper()}</span>
+            <span style="color:#9CA3AF">Database: {health.get('db','?')}</span>
+            <span style="color:#9CA3AF">Nurture scheduler: {'running' if health.get('nurture_scheduler') else 'stopped'}</span>
+        </div>""", unsafe_allow_html=True)
+
+        ai = health.get("ai_cascade", {})
+        vapi = health.get("vapi", False)
+        geo = health.get("geo_numbers", {})
+
+        ai_col, vapi_col = st.columns(2)
+        with ai_col:
+            st.markdown("**AI Cascade Providers**")
+            for provider, ok in ai.items():
+                icon = "✅" if ok else "❌"
+                st.markdown(f"{icon} `{provider}`")
+        with vapi_col:
+            st.markdown("**Vapi & Geo Numbers**")
+            st.markdown(f"{'✅' if vapi else '❌'} `vapi` (calling enabled)")
+            for region, ok in geo.items():
+                st.markdown(f"{'✅' if ok else '⚪'} `{region}` number")
+
+    st.markdown("---")
     st.subheader("System Configuration")
     st.info("Manage secrets via st.secrets (`.streamlit/secrets.toml`) for security.")
 
@@ -430,6 +779,7 @@ elif page == "⚙️ Settings":
 SUPABASE_URL = "https://xxx.supabase.co"
 SUPABASE_KEY = "eyJ..."
 BACKEND_URL = "https://your-backend.onrender.com"
+ADMIN_SECRET = "your-admin-secret"
 """)
 
     st.markdown("---")

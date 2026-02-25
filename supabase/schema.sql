@@ -20,9 +20,13 @@ CREATE TABLE IF NOT EXISTS leads (
     lead_volume   TEXT,          -- "1-10", "10-50", "50-200", "200+"
     message       TEXT,
     -- AI Scoring
-    score         INTEGER DEFAULT 0 CHECK (score >= 0 AND score <= 100),
-    tier          TEXT DEFAULT 'unscored' CHECK (tier IN ('high','medium','low','unscored')),
-    score_reasoning TEXT,
+    score             INTEGER DEFAULT 0 CHECK (score >= 0 AND score <= 100),
+    tier              TEXT DEFAULT 'unscored' CHECK (tier IN ('high','medium','low','unscored')),
+    score_reasoning   TEXT,
+    icp_fit           BOOLEAN DEFAULT FALSE,
+    budget_signals    JSONB DEFAULT '[]',
+    -- Serper enrichment (populated by enrichment.py on every lead submission)
+    enrichment_signals JSONB DEFAULT '{}',
     -- Status
     status        TEXT DEFAULT 'new' CHECK (status IN (
                     'new','call_initiated','call_completed',
@@ -72,7 +76,7 @@ CREATE TABLE IF NOT EXISTS calls (
     -- Outcomes
     meeting_booked      BOOLEAN DEFAULT FALSE,
     should_follow_up    BOOLEAN DEFAULT FALSE,
-    follow_up_strategy  TEXT,
+    follow_up_strategy  TEXT CHECK (follow_up_strategy IN ('email','call','whatsapp','sms','none')),
     -- Structured insights
     pain_points         JSONB DEFAULT '[]',
     action_items        JSONB DEFAULT '[]',
@@ -200,3 +204,77 @@ VALUES (
     'Initial prompt — v1 (Shango Revenue Systems / ARIA)',
     true
 ) ON CONFLICT (version) DO NOTHING;
+
+-- ============================================================
+-- AURORA 1.0 MIGRATIONS
+-- Run these after initial schema if upgrading from Aurora 0.01
+-- ============================================================
+
+-- ADD: 9-category critique scores to calls table
+ALTER TABLE calls ADD COLUMN IF NOT EXISTS pacing_score        INTEGER DEFAULT 0;
+ALTER TABLE calls ADD COLUMN IF NOT EXISTS silence_score       INTEGER DEFAULT 0;
+
+-- ADD: Geo-routing analytics to calls table
+ALTER TABLE calls ADD COLUMN IF NOT EXISTS geo_region          TEXT DEFAULT 'global';
+
+-- ADD: Module-level diff tracking to prompt_versions
+ALTER TABLE prompt_versions ADD COLUMN IF NOT EXISTS module_changes JSONB DEFAULT '[]';
+
+-- ============================================================
+-- TABLE: mars_lessons
+-- Long-term MARS reflective memory — lessons survive prompt resets
+-- ============================================================
+CREATE TABLE IF NOT EXISTS mars_lessons (
+    id              UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    lesson_type     TEXT NOT NULL CHECK (lesson_type IN (
+                        'pattern', 'objection', 'opening', 'insight', 'geo', 'closing', 'discovery')),
+    content         TEXT NOT NULL,           -- The actionable lesson
+    source_calls    INTEGER DEFAULT 1,       -- How many calls contributed
+    avg_score_delta NUMERIC(5,2) DEFAULT 0,  -- Observed/expected improvement
+    mcts_reward     NUMERIC(8,4) DEFAULT 0,  -- score_delta / compute_cost
+    geo_region      TEXT,                    -- Non-null if geo-specific lesson
+    is_active       BOOLEAN DEFAULT TRUE,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lessons_type    ON mars_lessons(lesson_type);
+CREATE INDEX IF NOT EXISTS idx_lessons_reward  ON mars_lessons(mcts_reward DESC);
+CREATE INDEX IF NOT EXISTS idx_lessons_active  ON mars_lessons(is_active);
+
+-- RLS for mars_lessons
+ALTER TABLE mars_lessons ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_all" ON mars_lessons FOR ALL USING (true);
+
+-- ADD: Index for geo analytics
+CREATE INDEX IF NOT EXISTS idx_calls_geo ON calls(geo_region);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- AURORA 1.0 — NURTURE SEQUENCES TABLE
+-- Stores AI-driven multi-step email + call sequences for lead nurturing.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS nurture_sequences (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lead_email      TEXT NOT NULL,
+    lead_name       TEXT,
+    lead_company    TEXT,
+    lead_score      INTEGER DEFAULT 50,
+    phone           TEXT,
+    pain_points     JSONB DEFAULT '[]',
+    call_summary    TEXT,
+    geo_region      TEXT DEFAULT 'global',
+    sequence_type   TEXT NOT NULL CHECK (sequence_type IN ('hot_nurture','warm_nurture','cold_nurture')),
+    current_step    INTEGER DEFAULT 0,
+    steps           JSONB NOT NULL DEFAULT '[]',
+    is_active       BOOLEAN DEFAULT TRUE,
+    completed       BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    last_action_at  TIMESTAMPTZ
+);
+
+ALTER TABLE nurture_sequences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_all" ON nurture_sequences FOR ALL USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_nurture_email  ON nurture_sequences(lead_email);
+CREATE INDEX IF NOT EXISTS idx_nurture_active ON nurture_sequences(is_active, completed);
+CREATE INDEX IF NOT EXISTS idx_nurture_type   ON nurture_sequences(sequence_type);

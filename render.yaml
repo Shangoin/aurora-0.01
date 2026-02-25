@@ -31,28 +31,64 @@ services:
         sync: false
       - key: GROK_API_KEY
         sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false          # Free 1M tokens/day — 3rd cascade provider
+      - key: MISTRAL_API_KEY
+        sync: false          # Free 1B tokens/mo — multilingual (4th cascade)
+      - key: OPENROUTER_API_KEY
+        sync: false          # DeepSeek V3 via OpenRouter — reasoning (5th cascade)
       - key: OPENAI_API_KEY
-        sync: false          # Optional — only needed if Gemini+Groq both fail
+        sync: false          # Last resort — GPT-4o-mini (~$0.15/M)
       - key: VAPI_API_KEY
         sync: false
       - key: VAPI_ASSISTANT_ID
         sync: false
       - key: VAPI_PHONE_NUMBER_ID
-        sync: false
+        sync: false          # Fallback / legacy global number
+      - key: VAPI_PHONE_NUMBER_ID_IN
+        sync: false          # India local number (+91 routing)
+      - key: VAPI_PHONE_NUMBER_ID_US
+        sync: false          # US local number (+1 routing)
+      - key: VAPI_PHONE_NUMBER_ID_UK
+        sync: false          # UK local number (+44 routing)
+      - key: VAPI_PHONE_NUMBER_ID_GLOBAL
+        sync: false          # Global fallback (+61/+65/other)
       - key: WEBHOOK_SECRET
         sync: false
       - key: ADMIN_SECRET
         sync: false
       - key: ALLOWED_ORIGINS
-        sync: false          # e.g. https://aurora.yoursite.com,https://yourdashboard.streamlit.app
+        value: "https://shango.in,https://www.shango.in,https://dashboard.shango.in"
       - key: WEBHOOK_BASE_URL
-        sync: false          # Will be https://srs-backend.onrender.com after deploy
+        value: "https://api.shango.in"
+      - key: FROM_EMAIL
+        value: "team@shango.in"
+      - key: FROM_NAME
+        value: "Shango Revenue Systems"
       - key: SLACK_WEBHOOK_URL
         sync: false
       - key: RESEND_API_KEY
         sync: false
-      - key: FROM_EMAIL
+      - key: BREVO_API_KEY
         sync: false
+      - key: SERPER_API_KEY
+        sync: false
+      - key: WHATSAPP_PHONE_ID
+        sync: false
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: EXOTEL_SID
+        sync: false
+      - key: EXOTEL_API_KEY
+        sync: false
+      - key: EXOTEL_API_TOKEN
+        sync: false
+      - key: EXOTEL_SUBDOMAIN
+        sync: false
+      - key: EXOTEL_FROM_NUMBER
+        sync: false
+    domains:
+      - name: api.shango.in
 
   # ── Streamlit Dashboard ───────────────────────────────────────
   - type: web
@@ -70,6 +106,8 @@ services:
       - key: SUPABASE_KEY
         sync: false
       - key: BACKEND_URL
-        sync: false          # Set to https://srs-backend.onrender.com
+        value: "https://api.shango.in"
       - key: ADMIN_SECRET
         sync: false
+    domains:
+      - name: dashboard.shango.in

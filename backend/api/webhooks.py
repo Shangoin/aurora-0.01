@@ -8,15 +8,14 @@ import logging
 from fastapi import APIRouter, Request, HTTPException
 from ai.critique import critique_call
 from ai.improvement import run_improvement_cycle
+from ai.mars import MARS_CYCLE_THRESHOLD
 from db.supabase import (
     insert_call, update_lead_status, insert_improvement,
-    get_recent_calls, log_event
+    get_calls_since, log_event
 )
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 logger = logging.getLogger("aurora.webhooks")
-
-CALL_COUNT_THRESHOLD = 50  # Run improvement cycle every N calls
 
 
 @router.post("/vapi")
@@ -40,14 +39,15 @@ async def vapi_webhook(request: Request):
 
     if event_type == "end-of-call-report" or event_type == "call.ended":
         await _handle_call_ended(payload)
+        return {"status": "processed"}
     elif event_type == "call-started":
         await _handle_call_started(payload)
+        return {"status": "acknowledged"}
     elif event_type == "status-update":
-        pass  # Just log, nothing to do
+        return {"status": "acknowledged"}
     else:
         logger.debug(f"Unhandled Vapi event: {event_type}")
-
-    return {"status": "ok"}
+        return {"status": "ignored"}
 
 
 async def _handle_call_started(payload: dict):
@@ -73,8 +73,9 @@ async def _handle_call_ended(payload: dict):
     lead_email = metadata.get("lead_email") or ""
     lead_score = int(metadata.get("lead_score") or 0)
     lead_tier = metadata.get("lead_tier") or "unknown"
+    geo_region = metadata.get("geo_region") or "global"
 
-    logger.info(f"Call ended: {call_id}, duration={duration}s, lead={lead_email}")
+    logger.info(f"Call ended: {call_id}, duration={duration}s, lead={lead_email}, geo={geo_region}")
 
     # ── Run critique ──────────────────────────────────────────────────────────
     critique = await critique_call(
@@ -105,17 +106,20 @@ async def _handle_call_ended(payload: dict):
         "closing_score": critique.scores.closing,
         "naturalness_score": critique.scores.naturalness,
         "relevance_score": critique.scores.relevance,
+        "pacing_score": critique.scores.pacing,
+        "silence_score": critique.scores.silence_handling,
         "meeting_booked": critique.meeting_booked,
         "should_follow_up": critique.should_follow_up,
         "follow_up_strategy": critique.follow_up_strategy,
         "pain_points": [p for p in critique.prospect_analysis.pain_points],
         "action_items": critique.action_items,
-        "script_improvements": [i.dict() for i in critique.script_improvements],
-        "full_critique": critique.dict(),
+        "script_improvements": [i.model_dump() for i in critique.script_improvements],
+        "full_critique": critique.model_dump(),
         "one_line_summary": critique.one_line_summary,
         "sentiment": critique.prospect_analysis.sentiment_overall,
         "buying_stage": critique.prospect_analysis.buying_stage,
         "deal_probability": critique.estimated_deal_probability,
+        "geo_region": geo_region,
     }
     await insert_call(call_record)
 
@@ -133,6 +137,25 @@ async def _handle_call_ended(payload: dict):
             "pain_points": critique.prospect_analysis.pain_points,
             "buying_stage": critique.prospect_analysis.buying_stage,
         })
+
+    # ── Trigger nurture sequence if no meeting booked ──────────────────────────
+    if lead_email and not critique.meeting_booked:
+        try:
+            from nurture.agent import get_nurture_agent
+            await get_nurture_agent().create_sequence(
+                lead_email=lead_email,
+                lead_name=metadata.get("lead_name", ""),
+                lead_company=metadata.get("company", ""),
+                lead_score=lead_score,
+                phone=metadata.get("phone", ""),
+                pain_points=critique.prospect_analysis.pain_points,
+                call_summary=critique.one_line_summary,
+                geo_region=geo_region,
+                should_follow_up=critique.should_follow_up,
+            )
+            logger.info(f"Nurture sequence created for {lead_email}")
+        except Exception as e:
+            logger.error(f"Failed to create nurture sequence for {lead_email}: {e}")
 
     # ── Queue high-impact script improvements ────────────────────────────────
     for improvement in critique.script_improvements:
@@ -159,16 +182,15 @@ async def _handle_call_ended(payload: dict):
         },
     )
 
-    # ── Check if improvement cycle should run ────────────────────────────────
-    recent_calls = await get_recent_calls(CALL_COUNT_THRESHOLD)
-    if len(recent_calls) >= CALL_COUNT_THRESHOLD:
-        # Check if last improvement was recent enough
-        logger.info(f"Threshold reached ({CALL_COUNT_THRESHOLD} calls) — triggering improvement cycle")
-        try:
-            result = await run_improvement_cycle(n_calls=CALL_COUNT_THRESHOLD)
-            logger.info(f"Improvement cycle: {result}")
-        except Exception as e:
-            logger.error(f"Improvement cycle failed: {e}")
+    # ── Check if improvement cycle should run (every MARS_CYCLE_THRESHOLD calls) ──
+    try:
+        recent_calls = await get_calls_since(days=90)
+        if len(recent_calls) >= MARS_CYCLE_THRESHOLD and len(recent_calls) % MARS_CYCLE_THRESHOLD == 0:
+            logger.info(f"MARS trigger: {len(recent_calls)} calls — running improvement cycle")
+            result = await run_improvement_cycle(n_calls=MARS_CYCLE_THRESHOLD)
+            logger.info(f"Improvement cycle complete: {result}")
+    except Exception as e:
+        logger.error(f"Improvement cycle failed: {e}")
 
     logger.info(f"Call {call_id} processed: score={critique.overall_score}, meeting={critique.meeting_booked}")
 
@@ -177,11 +199,12 @@ async def _handle_call_ended(payload: dict):
 
 @router.post("/trigger-improvement")
 async def manual_improvement(request: Request):
-    """Admin endpoint to manually trigger an improvement cycle"""
-    secret = os.environ.get("ADMIN_SECRET")
-    if secret:
-        incoming = request.headers.get("X-Admin-Secret")
-        if incoming != secret:
-            raise HTTPException(status_code=401, detail="Unauthorized")
+    """Admin endpoint to manually trigger an improvement cycle.
+    Requires: X-Admin-Secret: <ADMIN_SECRET>
+    """
+    admin_secret = os.environ.get("ADMIN_SECRET", "")
+    incoming = request.headers.get("X-Admin-Secret", "")
+    if not incoming or incoming != admin_secret:
+        raise HTTPException(status_code=403, detail="Forbidden")
     result = await run_improvement_cycle()
     return result

@@ -1,170 +1,297 @@
 """
-AURORA — Self-Improvement Loop
-Every 50 calls (or weekly), Claude analyzes patterns and rewrites the Vapi agent prompt.
-This is the "0.01% flywheel" — the system gets better every week automatically.
+AURORA 1.0 — MARS Reflective Self-Improvement Loop
+Every 25 calls: MCTS plans improvements → diff-based prompt edits → lessons stored in memory DB.
+Budget-aware reward function: Reward = score_improvement / compute_cost
+Geo-routing: 4 Vapi phone numbers (IN/US/UK/Global) based on lead country code.
 """
 import os
 import logging
 import httpx
+import time
 from datetime import datetime
-from models import PromptUpdate, PatternAnalysis
+from models import PromptUpdate, PatternAnalysis, MARSLesson
 from ai.orchestrator import cascade_ai_call, parse_json_response
+from ai.mars import (
+    MCTSNode as _MCTSTreeNode,  # dataclass — internal planning
+    run_mcts_planner as _run_mcts_planner,
+    MARS_CYCLE_THRESHOLD,
+    MARS_BUDGET_MINUTES,
+)
 from db.supabase import (
     get_recent_calls, get_pending_improvements, get_active_prompt,
-    insert_prompt_version, mark_improvements_applied
+    insert_prompt_version, mark_improvements_applied,
+    insert_mars_lesson, get_mars_lessons,
 )
 
 logger = logging.getLogger("aurora.improvement")
 
-META_ANALYSIS_SYSTEM = """You are a VP of Sales Operations with deep expertise in AI SDR optimization.
+# MARS_CYCLE_THRESHOLD imported from ai.mars (canonical source)
 
-Your job: Analyze call critique data, find repeating failure patterns, and write an improved AI agent prompt.
+# ─── Geo-routing phone map ────────────────────────────────────────────────────
+# Maps country code prefix → Vapi phone number ID env var
+# Import 4 Twilio numbers into Vapi and set these env vars
+
+GEO_PHONE_MAP = {
+    "+91": "VAPI_PHONE_NUMBER_ID_IN",    # India  — Mumbai local CID
+    "+1":  "VAPI_PHONE_NUMBER_ID_US",    # US/CA  — SF/NY local CID
+    "+44": "VAPI_PHONE_NUMBER_ID_UK",    # UK     — London local CID
+}
+# All other country codes fall through to _GLOBAL then to bare ID as final safety net
+_GEO_DEFAULT_ENV = "VAPI_PHONE_NUMBER_ID_GLOBAL"  # Fallback for all other regions
+_GEO_BARE_FALLBACK = "VAPI_PHONE_NUMBER_ID"       # Legacy absolute last resort
+
+
+def _get_phone_number_id(phone: str) -> str | None:
+    """
+    Return the correct Vapi phone number ID based on the lead's country code.
+    Priority: IN (+91) → US (+1) → UK (+44) → GLOBAL (all others) → bare ID.
+    Local caller ID → 40%+ answer rate vs generic number.
+    """
+    phone_clean = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    for prefix, env_key in GEO_PHONE_MAP.items():
+        if phone_clean.startswith(prefix):
+            val = os.environ.get(env_key)
+            if val:
+                logger.info(f"Geo-routing: {prefix} → {env_key}")
+                return val
+    # All unrecognised country codes route to GLOBAL, then bare fallback
+    return os.environ.get(_GEO_DEFAULT_ENV) or os.environ.get(_GEO_BARE_FALLBACK)
+
+
+def _detect_geo_region(phone: str) -> str:
+    """Return human-readable geo region for analytics."""
+    phone_clean = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if phone_clean.startswith("+91"):
+        return "india"
+    if phone_clean.startswith("+1"):
+        return "us"
+    if phone_clean.startswith("+44"):
+        return "uk"
+    return "global"
+
+
+# ─── MCTS Budget Planner — delegated to ai.mars ──────────────────────────────
+# run_mcts_planner() imported from ai.mars; use it directly in the cycle below.
+
+# ─── Prompts ──────────────────────────────────────────────────────────────────
+
+MARS_SYSTEM = """You are a VP of Sales Operations specializing in AI SDR optimization.
+You use MCTS-style analysis: evaluate improvement candidates by expected impact vs compute cost.
 
 Rules:
-1. Only fix patterns that appear in 3+ calls — don't over-fit to one-off events
-2. The new prompt must be complete and deployable (not a diff — the full prompt)
-3. Be specific in the changelog: "Improved objection handling for price objections by adding cost-of-inaction reframe"
-4. Expected improvements must be measurable: "Opening score should increase from 58 to 70+"
+1. Only fix patterns appearing in 3+ calls — prevent overfitting  
+2. Produce MODULAR edits: specify which section of the prompt changed (opening/discovery/objection/closing/persona)
+3. Each module change must include: before/after text + reason + expected score delta
+4. The updated_system_prompt must be COMPLETE and deployable (not a diff)
+5. Extract LESSONS for future iterations — these become long-term memory
+6. Changelog must be specific: "opening score 58→72: Added permission micro-yes before pitch"
 """
 
-IMPROVEMENT_PROMPT = """Analyze these {n_calls} call critiques and {n_improvements} pending improvements.
+MARS_PROMPT = """Analyze {n_calls} call critiques for MARS reflective improvement.
 
 == CURRENT AGENT PROMPT ==
 {current_prompt}
 
-== LAST {n_calls} CALL CRITIQUES (summaries) ==
+== PERFORMANCE STATS ==
+Average overall score: {avg_score}/100
+Previous cycle score: {prev_score}/100
+Score distribution: {score_distribution}
+Worst scoring dimensions: {worst_dimensions}
+
+== CALL CRITIQUES (last {n_calls} calls) ==
 {critique_summaries}
+
+== MCTS RANKED IMPROVEMENTS (by reward efficiency) ==
+{mcts_improvements}
 
 == PENDING SCRIPT IMPROVEMENTS ==
 {improvements_text}
 
-== PERFORMANCE STATS ==
-Average overall score: {avg_score}/100
-Score distribution: {score_distribution}
-Most common issues: {common_issues}
+== EXISTING MARS LESSONS (long-term memory) ==
+{existing_lessons}
 
 Your task:
-1. Identify the TOP 3 patterns causing low scores
-2. Write a COMPLETE improved system prompt for the Vapi agent
-3. Document specific changes in the changelog
+1. Identify TOP 3 patterns (must appear in 3+ calls)
+2. For each pattern, specify which prompt MODULE to edit
+3. Write COMPLETE updated system prompt (minimum 600 words)
+4. Extract 2-3 new LESSONS for the memory database
+5. MCTS reward: estimate score delta for each module change
 
 Return ONLY valid JSON:
 {{
   "patterns": [
     {{
       "issue": "<specific problem>",
-      "frequency": <how many calls showed this>,
+      "frequency": <call count>,
       "impact": "<high|medium|low>",
-      "example_from_calls": "<actual quote showing the problem>"
+      "module": "<opening|discovery|objection|closing|naturalness|pacing|persona>",
+      "example_from_calls": "<actual quote>",
+      "expected_score_delta": <float>
     }}
   ],
-  "updated_system_prompt": "<COMPLETE new prompt — minimum 500 words>",
-  "changelog": "<bullet list of specific changes made>",
-  "expected_improvement_areas": ["<metric1 will improve from X to Y>", "..."]
+  "module_changes": [
+    {{
+      "module": "<module_name>",
+      "before": "<original section text>",
+      "after": "<improved section text>",
+      "reason": "<why this change>",
+      "expected_delta": <score points expected>
+    }}
+  ],
+  "updated_system_prompt": "<COMPLETE new prompt — must be >600 words>",
+  "changelog": "<bullet list of specific changes with expected impact>",
+  "expected_improvement_areas": ["<metric will improve from X to Y>"],
+  "mars_lessons": [
+    {{
+      "lesson_type": "<pattern|objection|opening|insight|geo>",
+      "content": "<actionable lesson for future iterations>",
+      "source_calls": <int>,
+      "avg_score_delta": <expected improvement>
+    }}
+  ]
 }}"""
 
 
-async def run_improvement_cycle(n_calls: int = 50) -> dict:
+async def run_improvement_cycle(n_calls: int = MARS_CYCLE_THRESHOLD) -> dict:
     """
-    Runs the full self-improvement cycle:
+    MARS Reflective Improvement Cycle:
     1. Fetch recent calls + pending improvements
-    2. Claude meta-analysis
-    3. Update Vapi assistant prompt
-    4. Store new prompt version
-    5. Mark improvements as applied
-    
-    Returns summary of what changed.
+    2. Run MCTS budget planner — rank candidates by reward
+    3. AI meta-analysis with MARS prompt
+    4. Extract + store lessons to mars_lessons table (long-term memory)
+    5. Push diff-based prompt to Vapi
+    6. Store versioned prompt + mark improvements applied
     """
-    logger.info(f"Starting improvement cycle (last {n_calls} calls)...")
+    logger.info(f"[MARS] Starting improvement cycle (last {n_calls} calls)...")
+    t_start = time.monotonic()
 
     # 1. Gather data
     calls = await get_recent_calls(n_calls)
     improvements = await get_pending_improvements()
     current_prompt_row = await get_active_prompt()
+    existing_lessons = await get_mars_lessons(limit=20)
     current_prompt = current_prompt_row["prompt_text"] if current_prompt_row else ""
     current_version = current_prompt_row["version"] if current_prompt_row else 1
+    prev_score = current_prompt_row.get("avg_score_after") or 0 if current_prompt_row else 0
 
     if len(calls) < 5:
-        logger.info("Not enough calls for improvement cycle (need 5+)")
-        return {"status": "skipped", "reason": "Not enough call data"}
+        logger.info("[MARS] Not enough calls (need 5+), skipping")
+        return {"status": "skipped", "reason": "Insufficient call data"}
 
-    # 2. Summarize calls for the prompt
+    # 2. Build performance stats
     scores = [c.get("overall_score", 0) for c in calls if c.get("overall_score")]
     avg_score = sum(scores) / len(scores) if scores else 0
     score_dist = {
-        "excellent (80+)": sum(1 for s in scores if s >= 80),
-        "good (60-79)": sum(1 for s in scores if 60 <= s < 80),
-        "needs work (40-59)": sum(1 for s in scores if 40 <= s < 60),
-        "poor (<40)": sum(1 for s in scores if s < 40),
+        "excellent (85+)": sum(1 for s in scores if s >= 85),
+        "good (70-84)":    sum(1 for s in scores if 70 <= s < 85),
+        "needs work (50-69)": sum(1 for s in scores if 50 <= s < 70),
+        "poor (<50)":      sum(1 for s in scores if s < 50),
     }
 
+    # Find worst dimensions across all calls
+    dim_totals: dict[str, list] = {}
+    for call in calls:
+        for dim in ("opening", "discovery", "rapport", "objection_handling",
+                    "closing", "naturalness", "relevance", "pacing", "silence_handling"):
+            col_name = f"{dim}_score" if dim != "objection_handling" else "objection_score"
+            val = call.get(col_name, 0)
+            if val:
+                dim_totals.setdefault(dim, []).append(val)
+    dim_avgs = {d: round(sum(v) / len(v), 1) for d, v in dim_totals.items() if v}
+    worst_dims = sorted(dim_avgs.items(), key=lambda x: x[1])[:4]
+
     critique_summaries = "\n".join([
-        f"- Call {i+1}: Score={c.get('overall_score', 0)}/100 | "
-        f"Summary={c.get('one_line_summary', 'N/A')} | "
-        f"Verdict={c.get('coach_verdict', 'N/A')[:100]}"
-        for i, c in enumerate(calls[:30])  # Top 30 for prompt size
+        f"- Call {i+1}: Score={c.get('overall_score',0)}/100 | "
+        f"Geo={c.get('geo_region','unknown')} | "
+        f"Summary={c.get('one_line_summary','N/A')} | "
+        f"Verdict={str(c.get('coach_verdict',''))[:100]}"
+        for i, c in enumerate(calls[:30])
     ])
 
-    # Find common issues from script_improvements across all calls
-    all_issues: dict[str, int] = {}
-    for call in calls:
-        imps = call.get("script_improvements", [])
-        if isinstance(imps, list):
-            for imp in imps:
-                if isinstance(imp, dict):
-                    cat = imp.get("category", "unknown")
-                    all_issues[cat] = all_issues.get(cat, 0) + 1
-    common_issues = sorted(all_issues.items(), key=lambda x: -x[1])[:5]
+    # 3. MCTS budget planner — delegate to ai.mars (canonical implementation)
+    mcts_nodes = _run_mcts_planner(improvements, avg_score=avg_score)
+    mcts_text = "\n".join([
+        f"- [{n.module}] Score={n.score:.2f} | "
+        f"Expected +{n.reward:.1f}pts | "
+        f"~{n.compute_cost:.1f}min cost | {n.action[:80]}"
+        for n in mcts_nodes[:8]
+    ]) or "No ranked improvements available"
 
     improvements_text = "\n".join([
-        f"- [{imp.get('impact', '?')} impact] {imp.get('current_behavior', 'N/A')} → {imp.get('suggested_behavior', 'N/A')}"
-        for imp in improvements[:20]
+        f"- [{i.get('impact','?')} impact | {i.get('improvement_type','?')}] "
+        f"{i.get('current_behavior','N/A')} → {i.get('suggested_behavior','N/A')}"
+        for i in improvements[:25]
     ]) or "No pending improvements"
 
-    # 3. Run Claude meta-analysis
-    prompt = IMPROVEMENT_PROMPT.format(
+    lessons_text = "\n".join([
+        f"- [{l.get('lesson_type','?')}] {l.get('content','')}"
+        for l in existing_lessons[:10]
+    ]) or "No existing lessons (first cycle)"
+
+    # 4. Run MARS meta-analysis
+    prompt = MARS_PROMPT.format(
         n_calls=len(calls),
-        n_improvements=len(improvements),
-        current_prompt=current_prompt[:2000],  # Truncate to avoid huge tokens
-        critique_summaries=critique_summaries,
-        improvements_text=improvements_text,
+        current_prompt=current_prompt[:2000],
         avg_score=f"{avg_score:.1f}",
+        prev_score=f"{prev_score:.1f}",
         score_distribution=str(score_dist),
-        common_issues=str(common_issues),
+        worst_dimensions=str(worst_dims),
+        critique_summaries=critique_summaries,
+        mcts_improvements=mcts_text,
+        improvements_text=improvements_text,
+        existing_lessons=lessons_text,
     )
 
     try:
         raw = await cascade_ai_call(
             prompt=prompt,
-            system_prompt=META_ANALYSIS_SYSTEM,
-            task_type="self_improvement",
-            max_tokens=3000,
+            system_prompt=MARS_SYSTEM,
+            task_type="mars_improvement",
+            max_tokens=3500,
             use_cache=False,
-            force_openai=True,
         )
         result = parse_json_response(raw)
     except Exception as e:
-        logger.error(f"Meta-analysis failed: {e}")
+        logger.error(f"[MARS] Meta-analysis failed: {e}")
         return {"status": "error", "reason": str(e)}
 
     new_prompt_text = result.get("updated_system_prompt", "")
-    if not new_prompt_text or len(new_prompt_text) < 200:
+    if not new_prompt_text or len(new_prompt_text) < 300:
         return {"status": "error", "reason": "Generated prompt too short, aborting"}
 
-    # 4. Store new prompt version in Supabase
+    elapsed_ms = int((time.monotonic() - t_start) * 1000)
+
+    # 5. Store MARS lessons (long-term memory)
+    cycle_minutes = max(elapsed_ms / 60_000, 0.1)
+    for lesson_data in result.get("mars_lessons", []):
+        try:
+            delta = float(lesson_data.get("avg_score_delta", 0))
+            await insert_mars_lesson({
+                "lesson_type": lesson_data.get("lesson_type", "insight"),
+                "content": lesson_data.get("content", ""),
+                "source_calls": lesson_data.get("source_calls", len(calls)),
+                "avg_score_delta": delta,
+                # reward efficiency: score points gained per minute of compute
+                "mcts_reward": round(delta / cycle_minutes, 4),
+            })
+        except Exception as e:
+            logger.warning(f"[MARS] Failed to store lesson: {e}")
+
+    # 6. Store new prompt version
     new_version_row = await insert_prompt_version({
         "prompt_text": new_prompt_text,
         "changelog": result.get("changelog", ""),
         "based_on_calls": len(calls),
         "avg_score_before": avg_score,
+        "module_changes": result.get("module_changes", []),
     })
     new_version = new_version_row.get("version", current_version + 1)
 
-    # 5. Push updated prompt to Vapi
+    # 7. Push to Vapi
     vapi_updated = await _update_vapi_assistant(new_prompt_text)
 
-    # 6. Mark improvements as applied
-    imp_ids = [imp.get("id") for imp in improvements if imp.get("id")]
+    # 8. Mark improvements applied
+    imp_ids = [i.get("id") for i in improvements if i.get("id")]
     if imp_ids:
         await mark_improvements_applied(imp_ids)
 
@@ -174,22 +301,26 @@ async def run_improvement_cycle(n_calls: int = 50) -> dict:
         "calls_analyzed": len(calls),
         "improvements_applied": len(imp_ids),
         "avg_score_before": round(avg_score, 1),
-        "changelog": result.get("changelog", ""),
         "patterns_found": len(result.get("patterns", [])),
+        "mcts_nodes_evaluated": len(mcts_nodes),
+        "lessons_stored": len(result.get("mars_lessons", [])),
         "vapi_updated": vapi_updated,
+        "module_changes": [m.get("module") for m in result.get("module_changes", [])],
+        "changelog": result.get("changelog", ""),
         "expected_improvements": result.get("expected_improvement_areas", []),
+        "cycle_ms": elapsed_ms,
     }
-    logger.info(f"Improvement cycle complete: v{current_version} → v{new_version}")
+    logger.info(f"[MARS] Cycle complete: v{current_version} → v{new_version} ({elapsed_ms}ms)")
     return summary
 
 
 async def _update_vapi_assistant(new_prompt: str) -> bool:
-    """Push updated system prompt to Vapi assistant via API"""
+    """Push updated system prompt to Vapi assistant via PATCH API."""
     vapi_key = os.environ.get("VAPI_API_KEY")
     assistant_id = os.environ.get("VAPI_ASSISTANT_ID")
 
     if not vapi_key or not assistant_id:
-        logger.warning("VAPI_API_KEY or VAPI_ASSISTANT_ID not set — skipping Vapi update")
+        logger.warning("[MARS] VAPI_API_KEY or VAPI_ASSISTANT_ID not set — skipping Vapi update")
         return False
 
     try:
@@ -203,22 +334,23 @@ async def _update_vapi_assistant(new_prompt: str) -> bool:
                 },
             )
             r.raise_for_status()
-            logger.info(f"Vapi assistant updated successfully")
+            logger.info("[MARS] Vapi assistant updated successfully")
             return True
     except Exception as e:
-        logger.error(f"Failed to update Vapi assistant: {e}")
+        logger.error(f"[MARS] Failed to update Vapi assistant: {e}")
         return False
 
 
 async def trigger_call(lead_email: str, lead_name: str, phone: str, lead_context: dict) -> str | None:
     """
-    Trigger an outbound Vapi call to a lead. Returns Vapi call ID.
+    Trigger an outbound Vapi call with geo-routing.
+    Selects phone number based on lead's country code for local caller ID.
+    Returns Vapi call ID or None if not configured.
     """
     vapi_key = os.environ.get("VAPI_API_KEY")
     assistant_id = os.environ.get("VAPI_ASSISTANT_ID")
-    phone_number_id = os.environ.get("VAPI_PHONE_NUMBER_ID")
 
-    if not all([vapi_key, assistant_id, phone_number_id]):
+    if not all([vapi_key, assistant_id]):
         logger.warning("Vapi not fully configured — call not initiated")
         return None
 
@@ -226,7 +358,15 @@ async def trigger_call(lead_email: str, lead_name: str, phone: str, lead_context
         logger.warning(f"Invalid phone for {lead_email}: {phone}")
         return None
 
-    # Get active prompt for context injection
+    # Geo-route: select local phone number ID
+    phone_number_id = _get_phone_number_id(phone)
+    if not phone_number_id:
+        logger.warning(f"No Vapi phone number configured — call not initiated for {lead_email}")
+        return None
+
+    geo_region = _detect_geo_region(phone)
+
+    # Get active prompt version for audit trail
     prompt_row = await get_active_prompt()
     current_version = prompt_row.get("version", 1) if prompt_row else 1
 
@@ -243,13 +383,19 @@ async def trigger_call(lead_email: str, lead_name: str, phone: str, lead_context
                 "company": lead_context.get("company", "your company"),
                 "lead_volume": lead_context.get("lead_volume", ""),
                 "lead_score": str(lead_context.get("score", 0)),
+                "tier": lead_context.get("tier", "medium"),
                 "pain_hint": lead_context.get("message", ""),
+                "geo_region": geo_region,
             },
         },
         "metadata": {
             "lead_email": lead_email,
+            "lead_name": lead_name,
             "lead_score": lead_context.get("score", 0),
             "lead_tier": lead_context.get("tier", "unknown"),
+            "company": lead_context.get("company", ""),
+            "pain_hint": lead_context.get("message", ""),
+            "geo_region": geo_region,
             "prompt_version": current_version,
         },
         "serverUrl": os.environ.get("WEBHOOK_BASE_URL", "") + "/webhooks/vapi",
@@ -266,10 +412,10 @@ async def trigger_call(lead_email: str, lead_name: str, phone: str, lead_context
                 },
             )
             r.raise_for_status()
-            data = r.json()
-            call_id = data.get("id")
-            logger.info(f"Vapi call initiated: {call_id} for {lead_email}")
+            call_id = r.json().get("id")
+            logger.info(f"Vapi call initiated: {call_id} for {lead_email} (geo={geo_region})")
             return call_id
     except Exception as e:
         logger.error(f"Failed to trigger Vapi call for {lead_email}: {e}")
         return None
+

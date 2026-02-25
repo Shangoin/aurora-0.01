@@ -2,27 +2,31 @@
 
 ## Project Summary
 
-Shango Revenue Systems is an **autonomous AI sales development agent**. It scores every inbound lead, calls them within minutes using a Vapi AI voice assistant (ARIA), critiques every call, and rewrites its own script after 50 calls using Claude meta-analysis.
+**Aurora 1.0** — Shango Revenue Systems is an **autonomous AI SDR** targeting the top 0.01% of call performance. It scores every inbound lead, routes calls through geo-local Vapi numbers, critiques every call across 9 dimensions, and runs MARS self-improvement every 25 calls using MCTS budget planning.
 
-## Architecture
+**Target metrics:** 85+ avg call score · 25%+ meeting rate · ₹4/lead · <5 min speed-to-lead
+
+## Architecture (Aurora 1.0)
 
 ```
-Landing Page (Next.js)
-    ↓ POST /api/lead
+Landing Page (Next.js) — country dropdown + geo phone prefix
+    ↓ POST /api/lead  { country_code, phone_prefix, ... }
 FastAPI Backend
-    ↓ score_lead() → Gemini 2.0 Flash
+    ↓ score_lead() → 6-LLM cascade (Gemini→Groq→Cerebras→Mistral→DeepSeek→GPT-4o-mini)
     ↓ tier: high=5min, medium=15min, low=60min
-    ↓ trigger_call() → Vapi API
+    ↓ trigger_call() → _get_phone_number_id(phone) → geo-local Vapi number
 Vapi Voice Agent (ARIA)
     ↓ POST /webhooks/vapi  (end-of-call-report)
 FastAPI Backend
-    ↓ critique_call() → Claude Sonnet (force_openai)
-    ↓ insert_call() → Supabase
-    ↓ every 50 calls → run_improvement_cycle()
-        ↓ cascade_ai_call() → meta-analysis
+    ↓ critique_call() → 9-category scores (pacing + silence_handling NEW)
+    ↓ insert_call() → Supabase  { pacing_score, silence_score, geo_region }
+    ↓ every 25 calls → run_improvement_cycle()  [MARS loop]
+        ↓ _run_mcts_planner() → MCTSNode list (reward = delta/compute_cost)
+        ↓ cascade_ai_call() → module-level prompt diff
+        ↓ insert_mars_lesson() → Supabase mars_lessons table
         ↓ _update_vapi_assistant() → PATCH Vapi API
         ↓ insert_prompt_version() → Supabase
-Streamlit Dashboard → Supabase (read-only)
+Streamlit Dashboard (6 pages) → Supabase + /api/provider-stats
 ```
 
 ## Commands
@@ -79,14 +83,21 @@ See `.env.example` for all required variables. Critical ones:
 ```
 SUPABASE_URL          # Your Supabase project URL
 SUPABASE_KEY          # Supabase anon key (frontend safe)
-SUPABASE_SERVICE_KEY  # Supabase service key (backend only — bypasses RLS)
-GEMINI_API_KEY        # Primary AI — cheapest
-GROK_API_KEY          # Fallback AI
-OPENAI_API_KEY        # Final fallback
+SUPABASE_SERVICE_KEY  # Supabase service key (backend only)
+GEMINI_API_KEY        # Primary AI — cascade provider 1
+GROK_API_KEY          # Cascade provider 2
+CEREBRAS_API_KEY      # Cascade provider 3 — free 1M tokens/day
+MISTRAL_API_KEY       # Cascade provider 4 — multilingual
+OPENROUTER_API_KEY    # Cascade provider 5 — DeepSeek V3
+OPENAI_API_KEY        # Cascade provider 6 — last resort
 ANTHROPIC_API_KEY     # Claude Sonnet for critique (quality-critical)
 VAPI_API_KEY          # Vapi voice platform
 VAPI_ASSISTANT_ID     # Your Vapi assistant UUID
-VAPI_PHONE_NUMBER_ID  # Your Vapi phone number UUID
+VAPI_PHONE_NUMBER_ID  # Fallback/legacy global number
+VAPI_PHONE_NUMBER_ID_IN     # India local number (+91 routing)
+VAPI_PHONE_NUMBER_ID_US     # US local number (+1 routing)
+VAPI_PHONE_NUMBER_ID_UK     # UK local number (+44 routing)
+VAPI_PHONE_NUMBER_ID_GLOBAL # Global fallback (+61/+65/other)
 WEBHOOK_BASE_URL      # Public URL where backend is deployed
 ADMIN_SECRET          # Protects manual improvement trigger endpoint
 ```
@@ -130,6 +141,44 @@ git push -u origin main
 Add to repo Settings → Secrets → Actions:
 - `RENDER_DEPLOY_HOOK_BACKEND` — from Render service dashboard → Deploy Hook
 - `RENDER_DEPLOY_HOOK_DASHBOARD` — from Render dashboard service
+
+## Aurora 1.0 Patterns
+
+### Geo-routing: Always use _get_phone_number_id()
+```python
+# CORRECT — uses local caller ID for 40%+ answer rate
+from ai.improvement import trigger_call
+await trigger_call(phone_number="+919876543210", ...)
+# _get_phone_number_id will pick VAPI_PHONE_NUMBER_ID_IN automatically
+
+# WRONG — always uses same phone number regardless of region
+payload = {"phoneNumberId": os.environ["VAPI_PHONE_NUMBER_ID"]}
+```
+
+### MARS cycle threshold is 25 calls
+```python
+# MARS_CYCLE_THRESHOLD = 25  (was 50 in Aurora 0.01)
+# Every 25 calls, MCTS planner runs, module-level changes stored to mars_lessons
+```
+
+### 9 critique categories (not 7)
+```python
+# Critique returns CallScores with 9 fields:
+# opening, discovery, rapport, objection_handling, closing,
+# naturalness, relevance, pacing (NEW), silence_handling (NEW)
+```
+
+### insert_call() now requires pacing_score, silence_score, geo_region
+```python
+record = {
+    "overall_score": 78,
+    "pacing_score": 72,        # NEW Aurora 1.0 field
+    "silence_score": 68,       # NEW Aurora 1.0 field
+    "geo_region": "india",     # NEW Aurora 1.0 field
+    ...other fields...
+}
+await insert_call(record)
+```
 
 ## Development Patterns
 
@@ -183,4 +232,6 @@ Import at: https://n8n.yoursite.com → Workflows → Import
 
 ## Prior Versions & Progress
 
-See `prd.json` for the complete story history. All 17 stories are done. Story srs-018 (git push) requires manual execution.
+Aurora 0.01 → 17 stories shipped (see `prd.json` in ralph-sentinel-prime).
+Aurora 1.0 → Backend complete: 6-LLM cascade, MARS loop, geo-routing, 9-category critique.
+Remaining: landing page deployed, dashboard running, tests green.

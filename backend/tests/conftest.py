@@ -1,6 +1,7 @@
 """
 Shango Revenue Systems — Test Configuration & Shared Fixtures
 """
+import os
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -16,6 +17,21 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _preload_app():
+    """Pre-import the FastAPI app once so load_dotenv() fires before any test
+    clears environment variables.  Subsequent imports use Python's module cache."""
+    from main import app  # noqa: F401 — side-effect: calls load_dotenv()
+
+
+@pytest.fixture(autouse=True)
+def clear_secret_env_vars(monkeypatch, _preload_app):
+    """Ensure WEBHOOK_SECRET and ADMIN_SECRET are unset by default so tests
+    that don't need auth don't get 401/403 from load_dotenv() side-effects."""
+    monkeypatch.delenv("WEBHOOK_SECRET", raising=False)
+    monkeypatch.delenv("ADMIN_SECRET", raising=False)
 
 
 @pytest.fixture

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Shango Revenue Systems — Stop Losing Leads. Let AI Close Them.",

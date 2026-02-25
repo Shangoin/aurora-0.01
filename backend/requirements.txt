@@ -1,13 +1,21 @@
 ﻿fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 python-dotenv>=1.0.1
+click>=8.1.0            # setup.py CLI
+mcp>=1.0.0              # MCP server — Claude Desktop / Cursor / VS Code integration
 supabase>=2.5.0
 httpx>=0.25.0
 pydantic[email]>=2.9.0
 google-genai>=1.0.0
-# openai and anthropic are optional last-resort fallbacks — only needed if Gemini+Groq both fail
-# openai>=1.50.0
-# anthropic>=0.40.0
-# Development / Testing
+# ─── Aurora 1.0: 6-LLM Cascade ────────────────────────────────────────────────
+# Groq, Cerebras, Mistral, OpenRouter all use httpx (OpenAI-compat REST API)
+# No additional SDKs needed — all handled via httpx
+# Optional last-resort fallbacks:
+# openai>=1.50.0      # GPT-4o-mini (OPENAI_API_KEY)
+# anthropic>=0.40.0   # Claude Sonnet (ANTHROPIC_API_KEY)# ─── Aurora 1.0: Lead Nurture Engine ────────────────────────────────────────────
+openclaw>=0.0.2        # OpenClaw / CMDOP agent orchestration SDK
+apscheduler>=3.10.0    # Background scheduler for timed nurture steps
+sib-api-v3-sdk>=7.6.0  # Brevo (Sendinblue) email API# Development / Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+httpx>=0.25.0
