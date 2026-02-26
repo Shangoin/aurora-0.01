@@ -63,6 +63,13 @@ origins = os.getenv("ALLOWED_ORIGINS",
     "https://shango.in,https://www.shango.in,https://shango-landing.vercel.app,http://localhost:3000"
 ).split(",")
 origins = [o.strip() for o in origins if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
