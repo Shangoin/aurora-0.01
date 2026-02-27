@@ -12,9 +12,9 @@ logger = logging.getLogger("aurora.scoring")
 # ─── Tier → call delay mapping ────────────────────────────────────────────────
 
 _DELAY_MAP: dict[LeadTier, int] = {
-    LeadTier.HIGH:   5,   # Speed-to-lead: within 5 min
-    LeadTier.MEDIUM: 15,  # Follow up within 15 min
-    LeadTier.LOW:    60,  # Low priority: 1 hour
+    LeadTier.HIGH:   0,   # Speed-to-lead: immediate
+    LeadTier.MEDIUM: 1,   # Follow up within 1 min
+    LeadTier.LOW:    5,   # Low priority: 5 min
 }
 
 # ─── System prompt ────────────────────────────────────────────────────────────
@@ -29,9 +29,9 @@ IDEAL CUSTOMER PROFILE (ICP):
 - Budget signals: Paid tools, mentions scale challenges
 
 SCORING RUBRIC (0-100):
-- 80-100: Perfect ICP fit, clear pain, decision-maker, ready to buy  → tier: high,   recommended_delay_minutes: 5
-- 50-79:  Partial fit, some pain, possible decision-maker            → tier: medium, recommended_delay_minutes: 15
-- 0-49:   Poor fit, no pain, not a decision-maker, bad signals       → tier: low,    recommended_delay_minutes: 60
+- 80-100: Perfect ICP fit, clear pain, decision-maker, ready to buy  → tier: high,   recommended_delay_minutes: 0
+- 50-79:  Partial fit, some pain, possible decision-maker            → tier: medium, recommended_delay_minutes: 1
+- 0-49:   Poor fit, no pain, not a decision-maker, bad signals       → tier: low,    recommended_delay_minutes: 5
 
 THINK STEP-BY-STEP before giving the final score.
 Return ONLY valid JSON — no prose, no markdown fences."""
@@ -42,17 +42,17 @@ _FEW_SHOTS = """\
 EXAMPLE 1:
 Lead: name=Sarah Chen, company=TechStartup Inc, title=CEO, volume=200+/month, message="We're burning 40 hours/week on manual outreach and our team hates it"
 Reasoning: CEO of fast-growing company, 200+ leads/mo exceeds ICP threshold, explicit time-waste pain, high urgency language ("burning"), clear decision-maker.
-Answer: {"score": 88, "tier": "high", "reasoning": "CEO of growing company, 200+ leads, explicit pain about manual work, high urgency language", "icp_fit": true, "urgency": "high", "budget_signals": ["manual outreach investment", "company scaling fast"], "recommended_delay_minutes": 5}
+Answer: {"score": 88, "tier": "high", "reasoning": "CEO of growing company, 200+ leads, explicit pain about manual work, high urgency language", "icp_fit": true, "urgency": "high", "budget_signals": ["manual outreach investment", "company scaling fast"], "recommended_delay_minutes": 0}
 
 EXAMPLE 2:
 Lead: name=John Student, company=None, email=john@gmail.com, volume=1-10/month, message="just curious"
 Reasoning: No company, personal email, trivial volume, zero urgency. Not a business contact.
-Answer: {"score": 12, "tier": "low", "reasoning": "No company, personal email, tiny volume, zero urgency", "icp_fit": false, "urgency": "none", "budget_signals": [], "recommended_delay_minutes": 60}
+Answer: {"score": 12, "tier": "low", "reasoning": "No company, personal email, tiny volume, zero urgency", "icp_fit": false, "urgency": "none", "budget_signals": [], "recommended_delay_minutes": 5}
 
 EXAMPLE 3:
 Lead: name=Maria Garcia, company=GrowthAgency, title=Head of Sales, volume=50-200/month, message="Looking for something to help with follow-ups"
 Reasoning: Sales leader at agency, borderline volume, vague pain point, no specific urgency. Partial ICP fit.
-Answer: {"score": 63, "tier": "medium", "reasoning": "Sales leader at agency, moderate volume, vague pain point, no specific urgency", "icp_fit": true, "urgency": "medium", "budget_signals": ["process-oriented, likely has budget"], "recommended_delay_minutes": 15}
+Answer: {"score": 63, "tier": "medium", "reasoning": "Sales leader at agency, moderate volume, vague pain point, no specific urgency", "icp_fit": true, "urgency": "medium", "budget_signals": ["process-oriented, likely has budget"], "recommended_delay_minutes": 1}
 """
 
 # ─── Prompt builder ───────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ def _build_scoring_prompt(lead: LeadCreate) -> str:
         '  "icp_fit": <true|false>,\n'
         '  "urgency": "<high|medium|low|none>",\n'
         '  "budget_signals": ["<signal1>", ...],\n'
-        '  "recommended_delay_minutes": <5|15|60>\n'
+        '  "recommended_delay_minutes": <0|1|5>\n'
         "}"
     )
 
@@ -122,8 +122,8 @@ async def score_lead(lead: LeadCreate) -> LeadScore:
         else:
             budget_signals = [str(raw_bs)] if raw_bs else []
 
-        # recommended_delay_minutes: fall back to tier-based default
-        delay = int(data.get("recommended_delay_minutes", _DELAY_MAP[tier]))
+        # Delay is always controlled by tier — never trust AI's suggestion
+        delay = _DELAY_MAP[tier]
 
         return LeadScore(
             score=score,
@@ -145,16 +145,16 @@ async def score_lead(lead: LeadCreate) -> LeadScore:
             icp_fit=False,
             urgency="unknown",
             budget_signals=[],
-            recommended_delay_minutes=60,
+            recommended_delay_minutes=5,
         )
 
 # ─── Utility helpers ──────────────────────────────────────────────────────────
 
 def should_call_immediately(score: LeadScore) -> bool:
-    """True for high-tier leads — call within 5 minutes."""
+    """True for high-tier leads — call immediately (0 min delay)."""
     return score.tier == LeadTier.HIGH
 
 
 def get_call_delay_minutes(score: LeadScore) -> int:
     """Return recommended call delay in minutes based on tier."""
-    return _DELAY_MAP.get(score.tier, 60)
+    return _DELAY_MAP.get(score.tier, 5)
