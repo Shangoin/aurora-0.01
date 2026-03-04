@@ -319,7 +319,7 @@
   .check-item:hover { border-color: var(--border2); background: var(--surface); }
   .check-item.selected { border-color: var(--fire); background: rgba(255,77,28,0.06); }
 
-  .check-item input { display: none; }
+  .check-item input { position: absolute; opacity: 0; pointer-events: none; }
 
   .check-box {
     width: 16px; height: 16px;
@@ -354,7 +354,7 @@
 
   .radio-item:hover { border-color: var(--border2); background: var(--surface); }
   .radio-item.selected { border-color: var(--cyan); background: rgba(0,229,255,0.04); }
-  .radio-item input { display: none; }
+  .radio-item input { position: absolute; opacity: 0; pointer-events: none; }
 
   .radio-dot {
     width: 16px; height: 16px;
@@ -671,6 +671,18 @@
       </div>
 
       <div class="two-col">
+        <div class="field" id="f-phone">
+          <label>Phone Number</label>
+          <input type="tel" id="inp-phone" placeholder="+91 98765 43210" />
+          <div class="field-error">Phone number required</div>
+        </div>
+        <div class="field">
+          <label>WhatsApp Number <span style="color:var(--muted);font-size:10px;">(if different)</span></label>
+          <input type="tel" id="inp-whatsapp" placeholder="Same as phone / different number" />
+        </div>
+      </div>
+
+      <div class="two-col">
         <div class="field" id="f-company">
           <label>Company / Business Name</label>
           <input type="text" id="inp-company" placeholder="Sharma & Co." />
@@ -726,46 +738,38 @@
       <div class="field">
         <label>Biggest Pain Areas (select all that apply)</label>
         <div class="checkbox-grid" id="painGrid">
-          <label class="check-item" onclick="toggleCheck(this)">
-            <input type="checkbox" value="sales_followup">
+          <div class="check-item" data-value="sales_followup">
             <div class="check-box">✓</div>
             <div class="check-label">Sales follow-ups & lead management</div>
-          </label>
-          <label class="check-item" onclick="toggleCheck(this)">
-            <input type="checkbox" value="it_incidents">
+          </div>
+          <div class="check-item" data-value="it_incidents">
             <div class="check-box">✓</div>
             <div class="check-label">IT incidents & system downtime</div>
-          </label>
-          <label class="check-item" onclick="toggleCheck(this)">
-            <input type="checkbox" value="data_reporting">
+          </div>
+          <div class="check-item" data-value="data_reporting">
             <div class="check-box">✓</div>
             <div class="check-label">Data reporting & analytics</div>
-          </label>
-          <label class="check-item" onclick="toggleCheck(this)">
-            <input type="checkbox" value="document_processing">
+          </div>
+          <div class="check-item" data-value="document_processing">
             <div class="check-box">✓</div>
             <div class="check-label">Document processing & contracts</div>
-          </label>
-          <label class="check-item" onclick="toggleCheck(this)">
-            <input type="checkbox" value="customer_support">
+          </div>
+          <div class="check-item" data-value="customer_support">
             <div class="check-box">✓</div>
             <div class="check-label">Customer support & queries</div>
-          </label>
-          <label class="check-item" onclick="toggleCheck(this)">
-            <input type="checkbox" value="training_onboarding">
+          </div>
+          <div class="check-item" data-value="training_onboarding">
             <div class="check-box">✓</div>
             <div class="check-label">Staff training & onboarding</div>
-          </label>
-          <label class="check-item" onclick="toggleCheck(this)">
-            <input type="checkbox" value="workflow_automation">
+          </div>
+          <div class="check-item" data-value="workflow_automation">
             <div class="check-box">✓</div>
             <div class="check-label">Repetitive workflows & manual tasks</div>
-          </label>
-          <label class="check-item" onclick="toggleCheck(this)">
-            <input type="checkbox" value="market_intelligence">
+          </div>
+          <div class="check-item" data-value="market_intelligence">
             <div class="check-box">✓</div>
             <div class="check-label">Market research & competitive intel</div>
-          </label>
+          </div>
         </div>
       </div>
 
@@ -796,38 +800,34 @@
       <div class="field">
         <label>Team Size</label>
         <div class="radio-stack">
-          <label class="radio-item" onclick="selectRadio(this, 'teamSize')">
-            <input type="radio" name="teamSize" value="solo">
+          <div class="radio-item" onclick="selectRadio(this, 'teamSize', 'solo')">
             <div class="radio-dot"></div>
             <div class="radio-content">
               <div class="radio-title">Solo / Freelancer</div>
               <div class="radio-sub">Just me running everything</div>
             </div>
-          </label>
-          <label class="radio-item" onclick="selectRadio(this, 'teamSize')">
-            <input type="radio" name="teamSize" value="2-10">
+          </div>
+          <div class="radio-item" onclick="selectRadio(this, 'teamSize', '2-10')">
             <div class="radio-dot"></div>
             <div class="radio-content">
               <div class="radio-title">2–10 people</div>
               <div class="radio-sub">Small team, wearing many hats</div>
             </div>
-          </label>
-          <label class="radio-item" onclick="selectRadio(this, 'teamSize')">
-            <input type="radio" name="teamSize" value="11-50">
+          </div>
+          <div class="radio-item" onclick="selectRadio(this, 'teamSize', '11-50')">
             <div class="radio-dot"></div>
             <div class="radio-content">
               <div class="radio-title">11–50 people</div>
               <div class="radio-sub">Growing business, some structure</div>
             </div>
-          </label>
-          <label class="radio-item" onclick="selectRadio(this, 'teamSize')">
-            <input type="radio" name="teamSize" value="50+">
+          </div>
+          <div class="radio-item" onclick="selectRadio(this, 'teamSize', '50+')">
             <div class="radio-dot"></div>
             <div class="radio-content">
               <div class="radio-title">50+ people</div>
               <div class="radio-sub">Enterprise / large organisation</div>
             </div>
-          </label>
+          </div>
         </div>
       </div>
 
@@ -850,30 +850,27 @@
       <div class="field" style="margin-top:20px;">
         <label>How urgently do you need this solved?</label>
         <div class="radio-stack">
-          <label class="radio-item" onclick="selectRadio(this, 'urgency')">
-            <input type="radio" name="urgency" value="now">
+          <div class="radio-item" onclick="selectRadio(this, 'urgency', 'now')">
             <div class="radio-dot"></div>
             <div class="radio-content">
               <div class="radio-title">🔥 Right now — it's costing me daily</div>
               <div class="radio-sub">I need a solution within weeks</div>
             </div>
-          </label>
-          <label class="radio-item" onclick="selectRadio(this, 'urgency')">
-            <input type="radio" name="urgency" value="soon">
+          </div>
+          <div class="radio-item" onclick="selectRadio(this, 'urgency', 'soon')">
             <div class="radio-dot"></div>
             <div class="radio-content">
               <div class="radio-title">📅 Soon — planning for next quarter</div>
               <div class="radio-sub">Evaluating options over 1–3 months</div>
             </div>
-          </label>
-          <label class="radio-item" onclick="selectRadio(this, 'urgency')">
-            <input type="radio" name="urgency" value="exploring">
+          </div>
+          <div class="radio-item" onclick="selectRadio(this, 'urgency', 'exploring')">
             <div class="radio-dot"></div>
             <div class="radio-content">
               <div class="radio-title">🔍 Just exploring AI possibilities</div>
               <div class="radio-sub">Curious, no immediate timeline</div>
             </div>
-          </label>
+          </div>
         </div>
       </div>
 
@@ -910,7 +907,7 @@
 <footer>
   <div class="wrap">
     <span>Shango India · Kolkata · </span>
-    <a href="mailto:team@shango.in">team@shango.in</a>
+    <a href="/cdn-cgi/l/email-protection#087c6d6965487b6069666f67266166"><span class="__cf_email__" data-cfemail="9febfafef2dfecf7fef1f8f0b1f6f1">[email&#160;protected]</span></a>
     <span> · </span>
     <a href="https://github.com/Shangoin/shango-nexus-workspace" target="_blank">GitHub</a>
     <span> · 116/116 tests passing · Deployed SG + US</span>
@@ -920,45 +917,45 @@
 <script>
   let currentStep = 1;
   const totalSteps = 3;
+  const radioState = {};
 
   const budgetValues = [
-    '₹0 — Just exploring',
-    '₹500 – ₹1,500/mo',
-    '₹1,500 – ₹5,000/mo',
-    '₹5,000 – ₹10,000/mo',
-    '₹10,000 – ₹25,000/mo',
-    '₹25,000 – ₹50,000/mo',
-    '₹50,000 – ₹1,00,000/mo',
-    '₹1,00,000 – ₹2,50,000/mo',
-    '₹2,50,000 – ₹5,00,000/mo',
-    '₹5,00,000+/mo',
-    '₹10,00,000+/mo'
+    '₹0 — Just exploring','₹500 – ₹1,500/mo','₹1,500 – ₹5,000/mo',
+    '₹5,000 – ₹10,000/mo','₹10,000 – ₹25,000/mo','₹25,000 – ₹50,000/mo',
+    '₹50,000 – ₹1,00,000/mo','₹1,00,000 – ₹2,50,000/mo',
+    '₹2,50,000 – ₹5,00,000/mo','₹5,00,000+/mo','₹10,00,000+/mo'
   ];
 
   function updateBudget(val) {
     document.getElementById('budgetDisplay').textContent = budgetValues[val];
   }
-
   updateBudget(2);
 
-  function toggleCheck(el) {
-    el.classList.toggle('selected');
-    el.querySelector('input').checked = el.classList.contains('selected');
-  }
+  // CHECKBOXES — event delegation, no label/input conflict
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.check-item').forEach(function(item) {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.toggle('selected');
+      });
+    });
+  });
 
-  function selectRadio(el, name) {
-    document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
-      r.closest('.radio-item').classList.remove('selected');
+  // RADIO
+  function selectRadio(el, group, value) {
+    document.querySelectorAll('.radio-item[onclick*="' + group + '"]').forEach(function(r) {
+      r.classList.remove('selected');
     });
     el.classList.add('selected');
-    el.querySelector('input').checked = true;
+    radioState[group] = value;
   }
 
   function updateProgress(step) {
-    const pct = ((step - 1) / totalSteps) * 100;
+    var pct = ((step - 1) / totalSteps) * 100;
     document.getElementById('progressFill').style.width = pct + '%';
-    for (let i = 1; i <= 4; i++) {
-      const el = document.getElementById('pl-' + i);
+    for (var i = 1; i <= 4; i++) {
+      var el = document.getElementById('pl-' + i);
       el.classList.remove('active', 'done');
       if (i < step) el.classList.add('done');
       else if (i === step) el.classList.add('active');
@@ -966,12 +963,12 @@
   }
 
   function goTo(step) {
-    // Validate step 1
     if (step > 1 && currentStep === 1) {
-      let valid = true;
-      const name = document.getElementById('inp-name').value.trim();
-      const email = document.getElementById('inp-email').value.trim();
-      const company = document.getElementById('inp-company').value.trim();
+      var valid = true;
+      var name = document.getElementById('inp-name').value.trim();
+      var email = document.getElementById('inp-email').value.trim();
+      var company = document.getElementById('inp-company').value.trim();
+      var phone = document.getElementById('inp-phone').value.trim();
 
       if (!name) { document.getElementById('f-name').classList.add('has-error'); valid = false; }
       else document.getElementById('f-name').classList.remove('has-error');
@@ -982,9 +979,11 @@
       if (!company) { document.getElementById('f-company').classList.add('has-error'); valid = false; }
       else document.getElementById('f-company').classList.remove('has-error');
 
+      if (!phone) { document.getElementById('f-phone').classList.add('has-error'); valid = false; }
+      else document.getElementById('f-phone').classList.remove('has-error');
+
       if (!valid) return;
     }
-
     document.getElementById('step' + currentStep).classList.remove('active');
     currentStep = step;
     document.getElementById('step' + currentStep).classList.add('active');
@@ -993,19 +992,20 @@
   }
 
   function getCheckedPains() {
-    return Array.from(document.querySelectorAll('#painGrid .check-item.selected input'))
-      .map(i => i.value).join(', ');
+    return Array.from(document.querySelectorAll('#painGrid .check-item.selected'))
+      .map(function(el) { return el.dataset.value; }).join(', ');
   }
 
-  function getRadioValue(name) {
-    const checked = document.querySelector(`input[name="${name}"]:checked`);
-    return checked ? checked.value : 'Not specified';
+  function getRadioValue(group) {
+    return radioState[group] || 'Not specified';
   }
 
   function submitForm() {
-    const data = {
+    var data = {
       name: document.getElementById('inp-name').value.trim(),
       email: document.getElementById('inp-email').value.trim(),
+      phone: document.getElementById('inp-phone').value.trim(),
+      whatsapp: document.getElementById('inp-whatsapp').value.trim() || 'Same as phone',
       company: document.getElementById('inp-company').value.trim(),
       role: document.getElementById('inp-role').value,
       industry: document.getElementById('inp-industry').value,
@@ -1016,70 +1016,39 @@
       budget: budgetValues[document.getElementById('budgetRange').value],
       urgency: getRadioValue('urgency'),
       extra_notes: document.getElementById('inp-extra').value.trim(),
-      submitted_at: new Date().toISOString(),
-      source: 'shango.in/waitlist'
+      submitted_at: new Date().toISOString()
     };
 
-    // POST to Web3Forms
     fetch('https://api.web3forms.com/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        access_key: 'c23a9d35-dea1-4126-b9a5-a3e9c5dfc157', // ← Replace this
-        subject: `[Shango Nexus] New Lead: ${data.name} — ${data.company} (${data.urgency})`,
+        access_key: 'c23a9d35-dea1-4126-b9a5-a3e9c5dfc157',
+        subject: '[Shango Nexus] New Lead: ' + data.name + ' — ' + data.company + ' (' + data.urgency + ')',
         from_name: 'Shango Nexus Waitlist',
         name: data.name,
         email: data.email,
-        message: `
-NEW LEAD SUBMISSION
-===================
-Name: ${data.name}
-Email: ${data.email}
-Company: ${data.company}
-Role: ${data.role}
-Industry: ${data.industry}
-
-PAIN AREAS: ${data.pain_areas}
-
-PAIN DESCRIPTION:
-${data.pain_description}
-
-ALREADY TRIED:
-${data.already_tried}
-
-SCALE:
-Team Size: ${data.team_size}
-Budget: ${data.budget}
-Urgency: ${data.urgency}
-
-EXTRA NOTES:
-${data.extra_notes}
-
-Submitted: ${data.submitted_at}
-        `.trim()
+        message: 'NEW LEAD\n========\nName: ' + data.name + '\nEmail: ' + data.email + '\nPhone: ' + data.phone + '\nWhatsApp: ' + data.whatsapp + '\nCompany: ' + data.company + '\nRole: ' + data.role + '\nIndustry: ' + data.industry + '\n\nPAIN AREAS: ' + data.pain_areas + '\n\nPAIN DESCRIPTION:\n' + data.pain_description + '\n\nALREADY TRIED:\n' + data.already_tried + '\n\nTEAM SIZE: ' + data.team_size + '\nBUDGET: ' + data.budget + '\nURGENCY: ' + data.urgency + '\n\nEXTRA NOTES:\n' + data.extra_notes + '\n\nSubmitted: ' + data.submitted_at
       })
-    }).catch(err => console.error('Form submission error:', err));
+    }).catch(function(err) { console.error('Form error:', err); });
 
-    // Show success regardless (don't block UX on network)
     showSuccess(data);
   }
 
   function showSuccess(data) {
     document.getElementById('formContainer').style.display = 'none';
     document.querySelector('.progress-wrap').style.display = 'none';
-
-    // Fill summary
-    const summary = document.getElementById('summaryBox');
-    summary.innerHTML = `
-      <div class="summary-row"><span class="summary-key">Name</span><span class="summary-val">${data.name}</span></div>
-      <div class="summary-row"><span class="summary-key">Company</span><span class="summary-val">${data.company}</span></div>
-      <div class="summary-row"><span class="summary-key">Pain Areas</span><span class="summary-val">${data.pain_areas || 'Not specified'}</span></div>
-      <div class="summary-row"><span class="summary-key">Team Size</span><span class="summary-val">${data.team_size}</span></div>
-      <div class="summary-row"><span class="summary-key">Budget</span><span class="summary-val">${data.budget}</span></div>
-      <div class="summary-row"><span class="summary-key">Urgency</span><span class="summary-val">${data.urgency}</span></div>
-      <div class="summary-row"><span class="summary-key">Analysis to</span><span class="summary-val">${data.email}</span></div>
-    `;
-
+    var summary = document.getElementById('summaryBox');
+    summary.innerHTML =
+      '<div class="summary-row"><span class="summary-key">Name</span><span class="summary-val">' + data.name + '</span></div>' +
+      '<div class="summary-row"><span class="summary-key">Company</span><span class="summary-val">' + data.company + '</span></div>' +
+      '<div class="summary-row"><span class="summary-key">Phone</span><span class="summary-val">' + data.phone + '</span></div>' +
+      '<div class="summary-row"><span class="summary-key">WhatsApp</span><span class="summary-val">' + data.whatsapp + '</span></div>' +
+      '<div class="summary-row"><span class="summary-key">Pain Areas</span><span class="summary-val">' + (data.pain_areas || 'Not specified') + '</span></div>' +
+      '<div class="summary-row"><span class="summary-key">Team Size</span><span class="summary-val">' + data.team_size + '</span></div>' +
+      '<div class="summary-row"><span class="summary-key">Budget</span><span class="summary-val">' + data.budget + '</span></div>' +
+      '<div class="summary-row"><span class="summary-key">Urgency</span><span class="summary-val">' + data.urgency + '</span></div>' +
+      '<div class="summary-row"><span class="summary-key">Analysis to</span><span class="summary-val">' + data.email + '</span></div>';
     document.getElementById('successScreen').classList.add('show');
     updateProgress(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1088,7 +1057,7 @@ Submitted: ${data.submitted_at}
   function copyLink() {
     navigator.clipboard.writeText('https://www.shango.in/waitlist');
     event.target.textContent = 'Copied ✓';
-    setTimeout(() => { event.target.textContent = 'Copy Link'; }, 2000);
+    setTimeout(function() { event.target.textContent = 'Copy Link'; }, 2000);
   }
 </script>
 </body>
