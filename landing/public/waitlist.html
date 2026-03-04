@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shango Nexus — Self-Evolving AI for Indian Business</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050508;
+    --surface: #0d0d14;
+    --border: #1a1a2e;
+    --accent: #ff4d1c;
+    --accent2: #00e5ff;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --glow: rgba(255, 77, 28, 0.15);
+    --glow2: rgba(0, 229, 255, 0.08);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* NOISE TEXTURE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* GRID LINES */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,77,28,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,77,28,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* NAV */
+  nav {
+    padding: 24px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 10;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-mark {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    animation: pulse-mark 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-mark {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(0.95); }
+  }
+
+  .logo-sub { color: var(--muted); font-size: 12px; font-family: 'Space Mono', monospace; }
+
+  .nav-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    border: 1px solid var(--accent2);
+    padding: 4px 10px;
+    letter-spacing: 1px;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 100px 0 60px;
+    text-align: center;
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    border: 1px solid rgba(255,77,28,0.3);
+    padding: 6px 14px;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+
+  h1 {
+    font-size: clamp(44px, 7vw, 88px);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -3px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.7s 0.1s ease both;
+  }
+
+  h1 em {
+    font-style: normal;
+    color: var(--accent);
+    position: relative;
+  }
+
+  h1 em::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    opacity: 0.4;
+  }
+
+  .hero-sub {
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 560px;
+    margin: 0 auto 20px;
+    line-height: 1.7;
+    font-weight: 400;
+    animation: fadeUp 0.7s 0.2s ease both;
+  }
+
+  .hero-origin {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 52px;
+    animation: fadeUp 0.7s 0.25s ease both;
+  }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    max-width: 700px;
+    margin: 0 auto 60px;
+    animation: fadeUp 0.7s 0.3s ease both;
+    overflow: hidden;
+  }
+
+  .stat {
+    flex: 1;
+    padding: 20px 16px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+
+  .stat-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    display: block;
+  }
+
+  .stat-num.accent { color: var(--accent); }
+  .stat-num.accent2 { color: var(--accent2); }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* WAITLIST FORM */
+  .waitlist-section {
+    max-width: 560px;
+    margin: 0 auto;
+    animation: fadeUp 0.7s 0.4s ease both;
+  }
+
+  .waitlist-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 0;
+    position: relative;
+  }
+
+  .form-row input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-right: none;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    padding: 16px 20px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-row input:focus { border-color: var(--accent); }
+  .form-row input::placeholder { color: var(--muted); }
+
+  .form-row button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 16px 28px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .form-row button:hover { background: #ff6b40; }
+  .form-row button:active { transform: scale(0.98); }
+
+  .form-note {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 12px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .success-msg {
+    display: none;
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.3);
+    padding: 16px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--accent2);
+    letter-spacing: 0.5px;
+    margin-top: 16px;
+  }
+
+  /* DIVIDER */
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin: 80px 0 60px;
+    opacity: 0.3;
+  }
+  .section-divider::before, .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-divider span {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* POD GRID */
+  .pods-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .pods-header h2 {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin-bottom: 10px;
+  }
+  .pods-header p {
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .pod-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 80px;
+  }
+
+  .pod-card {
+    background: var(--bg);
+    padding: 20px;
+    transition: background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pod-card:hover {
+    background: var(--surface);
+  }
+
+  .pod-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .pod-card:hover::before { opacity: 1; }
+
+  .pod-name {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+
+  .pod-role {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .pod-bar-wrap {
+    height: 3px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .pod-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 1s ease;
+  }
+
+  .pod-pct {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--accent2);
+    margin-top: 6px;
+  }
+
+  /* ARCHITECTURE */
+  .arch-section {
+    margin-bottom: 80px;
+  }
+
+  .arch-section h2 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .arch-section .sub {
+    text-align: center;
+    color: var(--muted);
+    font-size: 15px;
+    margin-bottom: 40px;
+  }
+
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .arch-item {
+    background: var(--bg);
+    padding: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    transition: background 0.2s;
+  }
+
+  .arch-item:hover { background: var(--surface); }
+
+  .arch-icon {
+    font-family: 'Space Mono', monospace;
+    font-size: 20px;
+    color: var(--accent);
+    min-width: 32px;
+  }
+
+  .arch-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+
+  .arch-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* SIGNAL MAP */
+  .signals-section {
+    margin-bottom: 80px;
+  }
+
+  .signals-section h2 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .signals-section .sub {
+    text-align: center;
+    color: var(--muted);
+    font-size: 15px;
+    margin-bottom: 40px;
+  }
+
+  .signal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .signal-item {
+    background: var(--bg);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    transition: background 0.2s;
+  }
+
+  .signal-item:hover { background: var(--surface); }
+
+  .signal-from { color: var(--accent); font-weight: 700; }
+  .signal-arrow { color: var(--muted); }
+  .signal-to { color: var(--accent2); font-weight: 700; }
+  .signal-desc { color: var(--muted); margin-left: auto; font-size: 11px; letter-spacing: 0.5px; }
+
+  /* PRICING PREVIEW */
+  .pricing-section {
+    margin-bottom: 80px;
+  }
+
+  .pricing-section h2 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .pricing-section .sub {
+    text-align: center;
+    color: var(--muted);
+    font-size: 15px;
+    margin-bottom: 40px;
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .price-card {
+    background: var(--bg);
+    padding: 28px 24px;
+    text-align: center;
+    transition: background 0.2s;
+    position: relative;
+  }
+
+  .price-card:hover { background: var(--surface); }
+
+  .price-card.featured {
+    background: var(--surface);
+    outline: 1px solid var(--accent);
+    z-index: 1;
+  }
+
+  .price-tag-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .price-name {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  .price-inr {
+    font-family: 'Space Mono', monospace;
+    font-size: 32px;
+    color: var(--accent2);
+    font-weight: 700;
+  }
+
+  .price-period {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .price-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 14px;
+    line-height: 1.6;
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 0;
+    text-align: center;
+  }
+
+  .footer-logo {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 12px;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 28px;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .footer-links a {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    transition: color 0.2s;
+  }
+
+  .footer-links a:hover { color: var(--accent); }
+
+  .footer-note {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in-section {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .fade-in-section.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* MOBILE */
+  @media (max-width: 640px) {
+    h1 { letter-spacing: -2px; }
+    .stats-bar { flex-wrap: wrap; }
+    .stat { min-width: 50%; border-bottom: 1px solid var(--border); }
+    .arch-grid { grid-template-columns: 1fr; }
+    .pricing-grid { grid-template-columns: 1fr; }
+    .signal-desc { display: none; }
+    .form-row { flex-direction: column; }
+    .form-row input { border-right: 1px solid var(--border); border-bottom: none; }
+    .form-row button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div>
+        <div>Shango Nexus</div>
+        <div class="logo-sub">by Shango India · Kolkata</div>
+      </div>
+    </div>
+    <div class="nav-badge">116/116 TESTS ✓</div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-tag">
+      <div class="dot"></div>
+      Day 1 · Build in Public · March 2026
+    </div>
+
+    <h1>13 AI products.<br>One <em>nervous system</em>.</h1>
+
+    <p class="hero-sub">
+      The first self-evolving AI operating system built in India — where every customer interaction makes all 13 products smarter.
+    </p>
+
+    <p class="hero-origin">
+      Built solo · Kolkata, India · Zero VC · 10 sprints
+    </p>
+
+    <!-- STATS BAR -->
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-num accent">116</span>
+        <span class="stat-label">Tests Passing</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">13</span>
+        <span class="stat-label">AI Pods</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num accent2">6</span>
+        <span class="stat-label">LLM Cascade</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">2</span>
+        <span class="stat-label">Regions Live</span>
+      </div>
+    </div>
+
+    <!-- WAITLIST -->
+    <div class="waitlist-section">
+      <span class="waitlist-label">→ Get Early Access + Build-in-Public Updates</span>
+      <div class="form-row">
+        <input type="email" id="emailInput" placeholder="your@email.com" />
+        <button onclick="handleSignup()">Join Waitlist</button>
+      </div>
+      <p class="form-note">No spam. Just real build updates, architecture deep-dives, and early pricing.</p>
+      <div class="success-msg" id="successMsg">
+        ✓ You're in. Welcome to the Nexus waitlist. We'll be in touch.
+      </div>
+    </div>
+  </section>
+
+  <!-- POD GRID -->
+  <div class="section-divider"><span>The 13 Pods</span></div>
+
+  <div class="fade-in-section">
+    <div class="pods-header">
+      <h2>One system. 13 capabilities.</h2>
+      <p>Each pod shares memory, cache, evolution cycles, and constitutional governance.</p>
+    </div>
+
+    <div class="pod-grid" id="podGrid">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="section-divider"><span>Core Architecture</span></div>
+
+  <div class="arch-section fade-in-section">
+    <h2>What makes it self-evolving</h2>
+    <p class="sub">Not just AI tools. An organism that learns.</p>
+
+    <div class="arch-grid">
+      <div class="arch-item">
+        <div class="arch-icon">⚡</div>
+        <div>
+          <div class="arch-title">6-LLM Cascade</div>
+          <div class="arch-desc">Gemini 3 Pro → Groq → Cerebras → Mistral → DeepSeek → GPT-4o-mini. Redis+LRU cache cuts token cost 15–25%.</div>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-icon">🧬</div>
+        <div>
+          <div class="arch-title">DEAP Genetic Evolution</div>
+          <div class="arch-desc">50-population, 10-gen hourly cycles. MAE adversarial fitness. RSA-2048 signed improvement proofs. Prompts evolve — no human edits.</div>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-icon">🧠</div>
+        <div>
+          <div class="arch-title">3-Tier Memory</div>
+          <div class="arch-desc">Redis (1hr hot) → pgvector 768-dim (30d warm) → mem0 (forever cold). HiMem decay weights. ID-RAG interpretability retrieval.</div>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-icon">⚖️</div>
+        <div>
+          <div class="arch-title">Constitutional AI</div>
+          <div class="arch-desc">Single YAML governs all 13 pods. Circuit breakers. COCOA self-evolving rules. Aadhaar/PAN/PII blocked before AI providers.</div>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-icon">🔀</div>
+        <div>
+          <div class="arch-title">MIT EnCompass Branching</div>
+          <div class="arch-desc">N parallel function branches, LLM-scored. 15–40% accuracy gain on complex tasks. DAN runs 3-branch, Aurora runs 2-branch.</div>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-icon">🌐</div>
+        <div>
+          <div class="arch-title">Multi-Region Auto-Scale</div>
+          <div class="arch-desc">Singapore + Oregon. Auto-scale 1→3. Region-aware client selects nearest node. Indian visitor → SG (&lt;30ms). US → OR (&lt;50ms).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CROSS-POD SIGNALS -->
+  <div class="section-divider"><span>The Nervous System</span></div>
+
+  <div class="signals-section fade-in-section">
+    <h2>Cross-pod intelligence transfer</h2>
+    <p class="sub">When one pod learns, all pods benefit.</p>
+
+    <div class="signal-list">
+      <div class="signal-item">
+        <span class="signal-from">JANUS</span>
+        <span class="signal-arrow">——▶</span>
+        <span class="signal-to">AURORA</span>
+        <span style="color:var(--text); font-size:12px;">Bull market detected → outreach intensity ×1.5</span>
+        <span class="signal-desc">AUTOMATIC · NO HUMAN</span>
+      </div>
+      <div class="signal-item">
+        <span class="signal-from">SYNTROPY</span>
+        <span class="signal-arrow">——▶</span>
+        <span class="signal-to">AURORA</span>
+        <span style="color:var(--text); font-size:12px;">Student ERS ≥75 → scored as warm hire lead +15</span>
+        <span class="signal-desc">ZERO SDR IN FUNNEL</span>
+      </div>
+      <div class="signal-item">
+        <span class="signal-from">AURORA</span>
+        <span class="signal-arrow">——▶</span>
+        <span class="signal-to">SYNTROPY</span>
+        <span style="color:var(--text); font-size:12px;">Sales call reveals skill gap → resource generated</span>
+        <span class="signal-desc">SAME DAY</span>
+      </div>
+      <div class="signal-item">
+        <span class="signal-from">DAN</span>
+        <span class="signal-arrow">——▶</span>
+        <span class="signal-to">SENTINEL</span>
+        <span style="color:var(--text); font-size:12px;">IT incident detected → document analysis triggered</span>
+        <span class="signal-desc">REAL-TIME</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRICING -->
+  <div class="section-divider"><span>Pricing</span></div>
+
+  <div class="pricing-section fade-in-section">
+    <h2>Enterprise AI. SMB prices.</h2>
+    <p class="sub">Starting at ₹1,500/month. No lock-in on entry plans.</p>
+
+    <div class="pricing-grid">
+      <div class="price-card">
+        <span class="price-tag-label">Entry</span>
+        <div class="price-name">Shango Automation</div>
+        <div class="price-inr">₹1,500</div>
+        <div class="price-period">/month</div>
+        <div class="price-desc">Webhook automation engine. 3 active workflows. Slack + Brevo integration.</div>
+      </div>
+      <div class="price-card featured">
+        <span class="price-tag-label">⭐ Popular</span>
+        <div class="price-name">Aurora Pro</div>
+        <div class="price-inr">₹8,200</div>
+        <div class="price-period">/month</div>
+        <div class="price-desc">AI voice sales agent. Self-improving scripts. Autonomous prospect hunting every 6 hours.</div>
+      </div>
+      <div class="price-card">
+        <span class="price-tag-label">Bundle</span>
+        <div class="price-name">Nexus Pro</div>
+        <div class="price-inr">₹24,900</div>
+        <div class="price-period">/month</div>
+        <div class="price-desc">All 13 pods. Evolution dashboard. Priority support. Cross-pod intelligence fully active.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM CTA -->
+  <div class="waitlist-section fade-in-section" style="margin-bottom:80px; text-align:center;">
+    <h2 style="font-size:32px; font-weight:800; letter-spacing:-1px; margin-bottom:12px;">Follow the build.</h2>
+    <p style="color:var(--muted); font-size:15px; margin-bottom:32px;">Architecture decisions, errors, revenue milestones. No polish. Just the actual engineering.</p>
+    <span class="waitlist-label">→ Join the waitlist for early access + weekly build notes</span>
+    <div class="form-row" style="max-width:500px; margin:0 auto;">
+      <input type="email" id="emailInput2" placeholder="your@email.com" />
+      <button onclick="handleSignup2()">Join Waitlist</button>
+    </div>
+    <div class="success-msg" id="successMsg2"></div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-logo">Shango India</div>
+    <div class="footer-links">
+      <a href="https://github.com/Shangoin/shango-nexus-workspace" target="_blank">GitHub</a>
+      <a href="https://shango.in/nexus" target="_blank">Live Dashboard</a>
+      <a href="mailto:team@shango.in">team@shango.in</a>
+    </div>
+    <div class="footer-note">Built in Kolkata, India · 116/116 tests passing · Deployed Singapore + Oregon</div>
+  </div>
+</footer>
+
+<script>
+  // POD DATA
+  const pods = [
+    { name: "Aurora", role: "AI Sales Agent", pct: 70 },
+    { name: "Janus", role: "Trading Brain", pct: 75 },
+    { name: "DAN", role: "IT Swarm", pct: 65 },
+    { name: "Syntropy War Room", role: "Exam Arena", pct: 85 },
+    { name: "Ralph", role: "PRD Forge", pct: 95 },
+    { name: "Sentinel Prime", role: "Doc Intelligence", pct: 90 },
+    { name: "Sentinel Researcher", role: "Research Eye", pct: 45 },
+    { name: "Shango Automation", role: "Webhook Engine", pct: 90 },
+    { name: "Syntropy Lite", role: "KG Brain", pct: 70 },
+    { name: "Syntropy", role: "Tutor Organ", pct: 85 },
+    { name: "Syntropy Scaffold", role: "Launch Pad", pct: 75 },
+    { name: "Viral Music", role: "Creative Limb", pct: 85 },
+    { name: "Syntropy Launch", role: "Deployer", pct: 95 },
+  ];
+
+  const grid = document.getElementById('podGrid');
+  pods.forEach(pod => {
+    const card = document.createElement('div');
+    card.className = 'pod-card';
+    card.innerHTML = `
+      <div class="pod-name">${pod.name}</div>
+      <div class="pod-role">${pod.role}</div>
+      <div class="pod-bar-wrap"><div class="pod-bar" style="width:0%" data-width="${pod.pct}%"></div></div>
+      <div class="pod-pct">${pod.pct}%</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // INTERSECTION OBSERVER FOR ANIMATIONS
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        // Animate pod bars when visible
+        const bars = entry.target.querySelectorAll('.pod-bar');
+        bars.forEach(bar => {
+          setTimeout(() => { bar.style.width = bar.dataset.width; }, 100);
+        });
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.fade-in-section').forEach(el => observer.observe(el));
+
+  // Also trigger bars if they're already visible on load
+  setTimeout(() => {
+    document.querySelectorAll('.pod-bar').forEach(bar => {
+      const rect = bar.getBoundingClientRect();
+      if (rect.top < window.innerHeight) bar.style.width = bar.dataset.width;
+    });
+  }, 500);
+
+  // FORM HANDLERS
+  function handleSignup() {
+    const email = document.getElementById('emailInput').value.trim();
+    if (!email || !email.includes('@')) { 
+      document.getElementById('emailInput').style.borderColor = 'var(--accent)'; 
+      return; 
+    }
+    // In production: POST to your Supabase waitlist table
+    // fetch('https://nexus-backend-sg.onrender.com/api/waitlist', { method:'POST', body: JSON.stringify({email}), headers:{'Content-Type':'application/json'} })
+    const msg = document.getElementById('successMsg');
+    msg.style.display = 'block';
+    msg.textContent = `✓ ${email} added. Welcome to the Nexus waitlist.`;
+    document.getElementById('emailInput').value = '';
+  }
+
+  function handleSignup2() {
+    const email = document.getElementById('emailInput2').value.trim();
+    if (!email || !email.includes('@')) {
+      document.getElementById('emailInput2').style.borderColor = 'var(--accent)';
+      return;
+    }
+    const msg = document.getElementById('successMsg2');
+    msg.style.display = 'block';
+    msg.textContent = `✓ ${email} added. You'll hear from us soon.`;
+    document.getElementById('emailInput2').value = '';
+  }
+
+  // ENTER KEY SUPPORT
+  document.getElementById('emailInput').addEventListener('keydown', e => { if(e.key === 'Enter') handleSignup(); });
+  document.getElementById('emailInput2').addEventListener('keydown', e => { if(e.key === 'Enter') handleSignup2(); });
+</script>
+
+</body>
+</html>
