@@ -3,979 +3,1093 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shango Nexus — Self-Evolving AI for Indian Business</title>
+<title>Shango Nexus — Tell Us What's Broken</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Clash+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #050508;
-    --surface: #0d0d14;
-    --border: #1a1a2e;
-    --accent: #ff4d1c;
-    --accent2: #00e5ff;
-    --text: #e8e8f0;
-    --muted: #6b6b8a;
-    --glow: rgba(255, 77, 28, 0.15);
-    --glow2: rgba(0, 229, 255, 0.08);
+    --bg: #06060a;
+    --surface: #0e0e16;
+    --surface2: #13131e;
+    --border: #1e1e30;
+    --border2: #2a2a40;
+    --fire: #ff4d1c;
+    --fire2: #ff7a1a;
+    --cyan: #00e5ff;
+    --green: #00ff88;
+    --text: #f0f0f8;
+    --muted: #5a5a7a;
+    --muted2: #8888aa;
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   html { scroll-behavior: smooth; }
 
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Syne', sans-serif;
+    font-family: 'Space Mono', monospace;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
-  /* NOISE TEXTURE */
+  /* SCANLINE EFFECT */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
     pointer-events: none;
-    z-index: 0;
-    opacity: 0.6;
+    z-index: 100;
   }
 
-  /* GRID LINES */
+  /* GRID */
   body::after {
     content: '';
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(255,77,28,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,77,28,0.03) 1px, transparent 1px);
-    background-size: 60px 60px;
+      linear-gradient(rgba(255,77,28,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,77,28,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
     pointer-events: none;
     z-index: 0;
   }
 
-  .container {
-    max-width: 980px;
+  .wrap {
+    max-width: 720px;
     margin: 0 auto;
     padding: 0 24px;
     position: relative;
     z-index: 1;
   }
 
-  /* NAV */
-  nav {
-    padding: 24px 0;
+  /* TOP BAR */
+  .topbar {
+    padding: 20px 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--border);
-    position: relative;
-    z-index: 10;
   }
 
   .logo {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-  }
-
-  .logo-mark {
-    width: 32px;
-    height: 32px;
-    background: var(--accent);
-    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    animation: pulse-mark 3s ease-in-out infinite;
-  }
-
-  @keyframes pulse-mark {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.7; transform: scale(0.95); }
-  }
-
-  .logo-sub { color: var(--muted); font-size: 12px; font-family: 'Space Mono', monospace; }
-
-  .nav-badge {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    color: var(--accent2);
-    border: 1px solid var(--accent2);
-    padding: 4px 10px;
+    font-size: 14px;
+    font-weight: 700;
     letter-spacing: 1px;
+    text-transform: uppercase;
   }
+
+  .hex {
+    width: 28px; height: 28px;
+    background: var(--fire);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    animation: hexpulse 2.5s ease-in-out infinite;
+  }
+  @keyframes hexpulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+
+  .status-pill {
+    font-size: 10px;
+    color: var(--green);
+    border: 1px solid rgba(0,255,136,0.3);
+    padding: 4px 10px;
+    letter-spacing: 1.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-pill::before {
+    content: '';
+    width: 5px; height: 5px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
 
   /* HERO */
   .hero {
-    padding: 100px 0 60px;
+    padding: 64px 0 48px;
     text-align: center;
   }
 
-  .hero-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-family: 'Space Mono', monospace;
+  .hero-eyebrow {
     font-size: 11px;
-    letter-spacing: 2px;
-    color: var(--accent);
-    border: 1px solid rgba(255,77,28,0.3);
-    padding: 6px 14px;
-    margin-bottom: 40px;
+    color: var(--fire);
+    letter-spacing: 3px;
     text-transform: uppercase;
-    animation: fadeUp 0.6s ease both;
+    margin-bottom: 24px;
+    animation: fadeUp 0.5s ease both;
   }
-
-  .dot {
-    width: 6px; height: 6px;
-    background: var(--accent);
-    border-radius: 50%;
-    animation: blink 1.4s ease-in-out infinite;
-  }
-  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
 
   h1 {
-    font-size: clamp(44px, 7vw, 88px);
-    font-weight: 800;
-    line-height: 1.0;
-    letter-spacing: -3px;
-    margin-bottom: 28px;
-    animation: fadeUp 0.7s 0.1s ease both;
+    font-family: 'Clash Display', 'Space Mono', monospace;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -1.5px;
+    margin-bottom: 20px;
+    animation: fadeUp 0.5s 0.1s ease both;
   }
 
-  h1 em {
-    font-style: normal;
-    color: var(--accent);
+  h1 .scratch {
     position: relative;
+    color: var(--muted2);
   }
-
-  h1 em::after {
+  h1 .scratch::after {
     content: '';
     position: absolute;
-    bottom: 4px;
     left: 0; right: 0;
+    top: 50%;
     height: 3px;
-    background: var(--accent);
-    opacity: 0.4;
+    background: var(--fire);
+    transform: rotate(-2deg);
   }
+
+  h1 .highlight { color: var(--fire); }
 
   .hero-sub {
-    font-size: 18px;
-    color: var(--muted);
-    max-width: 560px;
-    margin: 0 auto 20px;
-    line-height: 1.7;
-    font-weight: 400;
-    animation: fadeUp 0.7s 0.2s ease both;
+    font-size: 13px;
+    color: var(--muted2);
+    line-height: 1.8;
+    max-width: 480px;
+    margin: 0 auto 16px;
+    animation: fadeUp 0.5s 0.2s ease both;
   }
 
-  .hero-origin {
-    font-family: 'Space Mono', monospace;
-    font-size: 12px;
+  .hero-note {
+    font-size: 11px;
     color: var(--muted);
-    letter-spacing: 1px;
-    margin-bottom: 52px;
-    animation: fadeUp 0.7s 0.25s ease both;
+    letter-spacing: 0.5px;
+    animation: fadeUp 0.5s 0.25s ease both;
   }
 
-  /* STATS BAR */
-  .stats-bar {
+  /* PROGRESS BAR */
+  .progress-wrap {
+    margin: 48px 0 0;
+    animation: fadeUp 0.5s 0.3s ease both;
+  }
+
+  .progress-labels {
     display: flex;
-    gap: 0;
-    border: 1px solid var(--border);
-    max-width: 700px;
-    margin: 0 auto 60px;
-    animation: fadeUp 0.7s 0.3s ease both;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .progress-step {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    transition: color 0.3s;
+  }
+  .progress-step.active { color: var(--fire); }
+  .progress-step.done { color: var(--green); }
+
+  .progress-track {
+    height: 2px;
+    background: var(--border);
+    position: relative;
     overflow: hidden;
   }
 
-  .stat {
-    flex: 1;
-    padding: 20px 16px;
-    text-align: center;
-    border-right: 1px solid var(--border);
-  }
-  .stat:last-child { border-right: none; }
-
-  .stat-num {
-    font-family: 'Space Mono', monospace;
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text);
-    display: block;
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--fire), var(--cyan));
+    transition: width 0.4s ease;
+    width: 0%;
   }
 
-  .stat-num.accent { color: var(--accent); }
-  .stat-num.accent2 { color: var(--accent2); }
-
-  .stat-label {
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-top: 4px;
-    display: block;
+  /* FORM STEPS */
+  .form-container {
+    margin: 0 0 80px;
   }
 
-  /* WAITLIST FORM */
-  .waitlist-section {
-    max-width: 560px;
-    margin: 0 auto;
-    animation: fadeUp 0.7s 0.4s ease both;
+  .step {
+    display: none;
+    animation: stepIn 0.35s ease both;
+  }
+  .step.active { display: block; }
+
+  @keyframes stepIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
   }
 
-  .waitlist-label {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
+  .step-header {
+    padding: 32px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .step-num {
+    font-size: 10px;
+    color: var(--fire);
     letter-spacing: 2px;
-    color: var(--muted);
     text-transform: uppercase;
-    margin-bottom: 14px;
+    margin-bottom: 8px;
+  }
+
+  .step-title {
+    font-family: 'Clash Display', monospace;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    line-height: 1.3;
+  }
+
+  .step-desc {
+    font-size: 12px;
+    color: var(--muted2);
+    margin-top: 8px;
+    line-height: 1.7;
+  }
+
+  /* FIELDS */
+  .field {
+    margin-bottom: 20px;
+  }
+
+  .field label {
     display: block;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 8px;
   }
 
-  .form-row {
-    display: flex;
-    gap: 0;
-    position: relative;
-  }
-
-  .form-row input {
-    flex: 1;
+  .field input,
+  .field textarea,
+  .field select {
+    width: 100%;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-right: none;
     color: var(--text);
-    font-family: 'Syne', sans-serif;
-    font-size: 15px;
-    padding: 16px 20px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .form-row input:focus { border-color: var(--accent); }
-  .form-row input::placeholder { color: var(--muted); }
-
-  .form-row button {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 16px 28px;
-    font-family: 'Space Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-  }
-
-  .form-row button:hover { background: #ff6b40; }
-  .form-row button:active { transform: scale(0.98); }
-
-  .form-note {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 12px;
-    font-family: 'Space Mono', monospace;
-  }
-
-  .success-msg {
-    display: none;
-    background: rgba(0,229,255,0.08);
-    border: 1px solid rgba(0,229,255,0.3);
-    padding: 16px 20px;
     font-family: 'Space Mono', monospace;
     font-size: 13px;
-    color: var(--accent2);
-    letter-spacing: 0.5px;
-    margin-top: 16px;
+    padding: 14px 16px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
   }
 
-  /* DIVIDER */
-  .section-divider {
+  .field input:focus,
+  .field textarea:focus,
+  .field select:focus {
+    border-color: var(--fire);
+    background: var(--surface2);
+  }
+
+  .field input::placeholder,
+  .field textarea::placeholder { color: var(--muted); }
+
+  .field textarea { resize: vertical; min-height: 100px; line-height: 1.7; }
+
+  .field select option { background: var(--surface2); }
+
+  /* CHECKBOX GRID */
+  .checkbox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .check-item {
     display: flex;
     align-items: center;
-    gap: 20px;
-    margin: 80px 0 60px;
-    opacity: 0.3;
-  }
-  .section-divider::before, .section-divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-  .section-divider span {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--muted);
-    text-transform: uppercase;
-  }
-
-  /* POD GRID */
-  .pods-header {
-    text-align: center;
-    margin-bottom: 40px;
-  }
-  .pods-header h2 {
-    font-size: 36px;
-    font-weight: 800;
-    letter-spacing: -1.5px;
-    margin-bottom: 10px;
-  }
-  .pods-header p {
-    color: var(--muted);
-    font-size: 15px;
-  }
-
-  .pod-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1px;
-    background: var(--border);
+    gap: 10px;
+    padding: 12px 14px;
     border: 1px solid var(--border);
-    margin-bottom: 80px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
   }
 
-  .pod-card {
+  .check-item:hover { border-color: var(--border2); background: var(--surface); }
+  .check-item.selected { border-color: var(--fire); background: rgba(255,77,28,0.06); }
+
+  .check-item input { display: none; }
+
+  .check-box {
+    width: 16px; height: 16px;
+    border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    font-size: 10px;
+  }
+
+  .check-item.selected .check-box {
+    background: var(--fire);
+    border-color: var(--fire);
+    color: white;
+  }
+
+  .check-label { font-size: 12px; line-height: 1.4; }
+
+  /* RADIO STACK */
+  .radio-stack { display: flex; flex-direction: column; gap: 8px; }
+
+  .radio-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .radio-item:hover { border-color: var(--border2); background: var(--surface); }
+  .radio-item.selected { border-color: var(--cyan); background: rgba(0,229,255,0.04); }
+  .radio-item input { display: none; }
+
+  .radio-dot {
+    width: 16px; height: 16px;
+    border: 1px solid var(--border2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: all 0.2s;
+  }
+
+  .radio-item.selected .radio-dot {
+    border-color: var(--cyan);
+    background: var(--cyan);
+    box-shadow: 0 0 8px rgba(0,229,255,0.4);
+  }
+
+  .radio-item.selected .radio-dot::after {
+    content: '';
+    width: 6px; height: 6px;
     background: var(--bg);
-    padding: 20px;
-    transition: background 0.2s;
+    border-radius: 50%;
+  }
+
+  .radio-content .radio-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .radio-content .radio-sub { font-size: 11px; color: var(--muted2); line-height: 1.5; }
+
+  /* RANGE SLIDER */
+  .range-wrap { padding: 8px 0; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    background: var(--fire);
+    border-radius: 0;
+    cursor: pointer;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  }
+
+  .range-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .range-value {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--fire);
+    margin-bottom: 8px;
+    font-family: 'Clash Display', monospace;
+  }
+
+  /* TWO COL */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* NAVIGATION */
+  .nav-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-back {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--muted2);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 14px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-back:hover { border-color: var(--text); color: var(--text); }
+
+  .btn-next {
+    flex: 1;
+    background: var(--fire);
+    border: none;
+    color: white;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 14px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
     position: relative;
     overflow: hidden;
   }
 
-  .pod-card:hover {
-    background: var(--surface);
+  .btn-next:hover { background: var(--fire2); }
+  .btn-next:active { transform: scale(0.99); }
+
+  .btn-next::after {
+    content: '→';
+    margin-left: 8px;
   }
 
-  .pod-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0;
-    width: 3px;
-    height: 100%;
-    background: var(--accent);
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  .pod-card:hover::before { opacity: 1; }
-
-  .pod-name {
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: -0.3px;
-    margin-bottom: 4px;
-  }
-
-  .pod-role {
+  .btn-submit {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
     font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    padding: 14px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-submit:hover { background: rgba(0,255,136,0.08); }
+
+  /* SUCCESS SCREEN */
+  .success-screen {
+    display: none;
+    text-align: center;
+    padding: 80px 0;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .success-screen.show { display: block; }
+
+  .success-icon {
+    width: 64px; height: 64px;
+    background: rgba(0,255,136,0.1);
+    border: 1px solid var(--green);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    margin: 0 auto 24px;
+    animation: scaleIn 0.4s ease both;
+  }
+
+  @keyframes scaleIn { from { transform: scale(0.5); opacity:0; } to { transform: scale(1); opacity:1; } }
+
+  .success-screen h2 {
+    font-family: 'Clash Display', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -1px;
     margin-bottom: 12px;
   }
 
-  .pod-bar-wrap {
-    height: 3px;
-    background: var(--border);
-    overflow: hidden;
-  }
-
-  .pod-bar {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    transition: width 1s ease;
-  }
-
-  .pod-pct {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    color: var(--accent2);
-    margin-top: 6px;
-  }
-
-  /* ARCHITECTURE */
-  .arch-section {
-    margin-bottom: 80px;
-  }
-
-  .arch-section h2 {
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    margin-bottom: 8px;
-    text-align: center;
-  }
-
-  .arch-section .sub {
-    text-align: center;
-    color: var(--muted);
-    font-size: 15px;
-    margin-bottom: 40px;
-  }
-
-  .arch-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-  }
-
-  .arch-item {
-    background: var(--bg);
-    padding: 24px;
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-    transition: background 0.2s;
-  }
-
-  .arch-item:hover { background: var(--surface); }
-
-  .arch-icon {
-    font-family: 'Space Mono', monospace;
-    font-size: 20px;
-    color: var(--accent);
-    min-width: 32px;
-  }
-
-  .arch-title {
-    font-size: 14px;
-    font-weight: 700;
-    margin-bottom: 6px;
-    letter-spacing: -0.3px;
-  }
-
-  .arch-desc {
+  .success-screen p {
     font-size: 13px;
-    color: var(--muted);
-    line-height: 1.6;
-    font-family: 'Space Mono', monospace;
+    color: var(--muted2);
+    line-height: 1.8;
+    max-width: 400px;
+    margin: 0 auto 32px;
   }
 
-  /* SIGNAL MAP */
-  .signals-section {
-    margin-bottom: 80px;
-  }
-
-  .signals-section h2 {
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    text-align: center;
-    margin-bottom: 8px;
-  }
-
-  .signals-section .sub {
-    text-align: center;
-    color: var(--muted);
-    font-size: 15px;
-    margin-bottom: 40px;
-  }
-
-  .signal-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-  }
-
-  .signal-item {
-    background: var(--bg);
-    padding: 20px 24px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-family: 'Space Mono', monospace;
-    font-size: 13px;
-    transition: background 0.2s;
-  }
-
-  .signal-item:hover { background: var(--surface); }
-
-  .signal-from { color: var(--accent); font-weight: 700; }
-  .signal-arrow { color: var(--muted); }
-  .signal-to { color: var(--accent2); font-weight: 700; }
-  .signal-desc { color: var(--muted); margin-left: auto; font-size: 11px; letter-spacing: 0.5px; }
-
-  /* PRICING PREVIEW */
-  .pricing-section {
-    margin-bottom: 80px;
-  }
-
-  .pricing-section h2 {
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    text-align: center;
-    margin-bottom: 8px;
-  }
-
-  .pricing-section .sub {
-    text-align: center;
-    color: var(--muted);
-    font-size: 15px;
-    margin-bottom: 40px;
-  }
-
-  .pricing-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-  }
-
-  .price-card {
-    background: var(--bg);
-    padding: 28px 24px;
-    text-align: center;
-    transition: background 0.2s;
-    position: relative;
-  }
-
-  .price-card:hover { background: var(--surface); }
-
-  .price-card.featured {
+  .summary-box {
     background: var(--surface);
-    outline: 1px solid var(--accent);
-    z-index: 1;
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    text-align: left;
+    max-width: 480px;
+    margin: 0 auto 32px;
   }
 
-  .price-tag-label {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    color: var(--accent);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    display: block;
-    margin-bottom: 6px;
-  }
-
-  .price-name {
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    margin-bottom: 6px;
-  }
-
-  .price-inr {
-    font-family: 'Space Mono', monospace;
-    font-size: 32px;
-    color: var(--accent2);
-    font-weight: 700;
-  }
-
-  .price-period {
+  .summary-row {
+    display: flex;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
     font-size: 12px;
-    color: var(--muted);
-    font-family: 'Space Mono', monospace;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-key { color: var(--muted); min-width: 100px; flex-shrink: 0; }
+  .summary-val { color: var(--text); word-break: break-word; }
+
+  .share-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
-  .price-desc {
-    font-size: 13px;
-    color: var(--muted);
-    margin-top: 14px;
-    line-height: 1.6;
+  .share-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    border: 1px solid var(--border2);
+    color: var(--muted2);
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+    background: transparent;
   }
+  .share-btn:hover { border-color: var(--cyan); color: var(--cyan); }
 
   /* FOOTER */
   footer {
     border-top: 1px solid var(--border);
-    padding: 40px 0;
+    padding: 28px 0;
     text-align: center;
-  }
-
-  .footer-logo {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    margin-bottom: 12px;
-  }
-
-  .footer-links {
-    display: flex;
-    gap: 28px;
-    justify-content: center;
-    margin-bottom: 16px;
-  }
-
-  .footer-links a {
-    font-family: 'Space Mono', monospace;
-    font-size: 12px;
-    color: var(--muted);
-    text-decoration: none;
-    letter-spacing: 0.5px;
-    transition: color 0.2s;
-  }
-
-  .footer-links a:hover { color: var(--accent); }
-
-  .footer-note {
-    font-family: 'Space Mono', monospace;
     font-size: 11px;
     color: var(--muted);
     letter-spacing: 0.5px;
   }
 
+  footer a { color: var(--muted2); text-decoration: none; }
+  footer a:hover { color: var(--fire); }
+
   /* ANIMATIONS */
   @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(16px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .fade-in-section {
-    opacity: 0;
-    transform: translateY(24px);
-    transition: opacity 0.6s ease, transform 0.6s ease;
+  /* ERROR */
+  .field-error {
+    font-size: 10px;
+    color: var(--fire);
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+    display: none;
   }
+  .field.has-error input,
+  .field.has-error textarea,
+  .field.has-error select { border-color: var(--fire); }
+  .field.has-error .field-error { display: block; }
 
-  .fade-in-section.visible {
-    opacity: 1;
-    transform: none;
-  }
-
-  /* MOBILE */
-  @media (max-width: 640px) {
-    h1 { letter-spacing: -2px; }
-    .stats-bar { flex-wrap: wrap; }
-    .stat { min-width: 50%; border-bottom: 1px solid var(--border); }
-    .arch-grid { grid-template-columns: 1fr; }
-    .pricing-grid { grid-template-columns: 1fr; }
-    .signal-desc { display: none; }
-    .form-row { flex-direction: column; }
-    .form-row input { border-right: 1px solid var(--border); border-bottom: none; }
-    .form-row button { width: 100%; }
+  @media (max-width: 600px) {
+    .checkbox-grid { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+    h1 { letter-spacing: -1px; }
   }
 </style>
 </head>
 <body>
 
-<div class="container">
+<div class="wrap">
 
-  <!-- NAV -->
-  <nav>
+  <!-- TOP BAR -->
+  <nav class="topbar">
     <div class="logo">
-      <div class="logo-mark"></div>
-      <div>
-        <div>Shango Nexus</div>
-        <div class="logo-sub">by Shango India · Kolkata</div>
-      </div>
+      <div class="hex"></div>
+      Shango Nexus
     </div>
-    <div class="nav-badge">116/116 TESTS ✓</div>
+    <div class="status-pill">LIVE · SG + US</div>
   </nav>
 
   <!-- HERO -->
-  <section class="hero">
-    <div class="hero-tag">
-      <div class="dot"></div>
-      Day 1 · Build in Public · March 2026
-    </div>
-
-    <h1>13 AI products.<br>One <em>nervous system</em>.</h1>
-
+  <div class="hero">
+    <div class="hero-eyebrow">Build in Public · Day 1 · Kolkata, India</div>
+    <h1>
+      Tell us what's<br>
+      <span class="scratch">broken</span>&nbsp;&nbsp;<span class="highlight">slowing you down.</span>
+    </h1>
     <p class="hero-sub">
-      The first self-evolving AI operating system built in India — where every customer interaction makes all 13 products smarter.
+      We built a self-evolving AI OS for Indian businesses. 13 products. One nervous system. Zero VC. Tell us your biggest operational pain — we'll tell you exactly how Nexus can fix it.
     </p>
+    <p class="hero-note">Takes 3 minutes · You get a personalised breakdown · We get to build what actually matters</p>
 
-    <p class="hero-origin">
-      Built solo · Kolkata, India · Zero VC · 10 sprints
-    </p>
-
-    <!-- STATS BAR -->
-    <div class="stats-bar">
-      <div class="stat">
-        <span class="stat-num accent">116</span>
-        <span class="stat-label">Tests Passing</span>
+    <!-- PROGRESS -->
+    <div class="progress-wrap">
+      <div class="progress-labels">
+        <span class="progress-step active" id="pl-1">01 · You</span>
+        <span class="progress-step" id="pl-2">02 · Pain</span>
+        <span class="progress-step" id="pl-3">03 · Scale</span>
+        <span class="progress-step" id="pl-4">04 · Done</span>
       </div>
-      <div class="stat">
-        <span class="stat-num">13</span>
-        <span class="stat-label">AI Pods</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num accent2">6</span>
-        <span class="stat-label">LLM Cascade</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num">2</span>
-        <span class="stat-label">Regions Live</span>
-      </div>
-    </div>
-
-    <!-- WAITLIST -->
-    <div class="waitlist-section">
-      <span class="waitlist-label">→ Get Early Access + Build-in-Public Updates</span>
-      <div class="form-row">
-        <input type="email" id="emailInput" placeholder="your@email.com" />
-        <button onclick="handleSignup()">Join Waitlist</button>
-      </div>
-      <p class="form-note">No spam. Just real build updates, architecture deep-dives, and early pricing.</p>
-      <div class="success-msg" id="successMsg">
-        ✓ You're in. Welcome to the Nexus waitlist. We'll be in touch.
-      </div>
-    </div>
-  </section>
-
-  <!-- POD GRID -->
-  <div class="section-divider"><span>The 13 Pods</span></div>
-
-  <div class="fade-in-section">
-    <div class="pods-header">
-      <h2>One system. 13 capabilities.</h2>
-      <p>Each pod shares memory, cache, evolution cycles, and constitutional governance.</p>
-    </div>
-
-    <div class="pod-grid" id="podGrid">
-      <!-- Populated by JS -->
-    </div>
-  </div>
-
-  <!-- ARCHITECTURE -->
-  <div class="section-divider"><span>Core Architecture</span></div>
-
-  <div class="arch-section fade-in-section">
-    <h2>What makes it self-evolving</h2>
-    <p class="sub">Not just AI tools. An organism that learns.</p>
-
-    <div class="arch-grid">
-      <div class="arch-item">
-        <div class="arch-icon">⚡</div>
-        <div>
-          <div class="arch-title">6-LLM Cascade</div>
-          <div class="arch-desc">Gemini 3 Pro → Groq → Cerebras → Mistral → DeepSeek → GPT-4o-mini. Redis+LRU cache cuts token cost 15–25%.</div>
-        </div>
-      </div>
-      <div class="arch-item">
-        <div class="arch-icon">🧬</div>
-        <div>
-          <div class="arch-title">DEAP Genetic Evolution</div>
-          <div class="arch-desc">50-population, 10-gen hourly cycles. MAE adversarial fitness. RSA-2048 signed improvement proofs. Prompts evolve — no human edits.</div>
-        </div>
-      </div>
-      <div class="arch-item">
-        <div class="arch-icon">🧠</div>
-        <div>
-          <div class="arch-title">3-Tier Memory</div>
-          <div class="arch-desc">Redis (1hr hot) → pgvector 768-dim (30d warm) → mem0 (forever cold). HiMem decay weights. ID-RAG interpretability retrieval.</div>
-        </div>
-      </div>
-      <div class="arch-item">
-        <div class="arch-icon">⚖️</div>
-        <div>
-          <div class="arch-title">Constitutional AI</div>
-          <div class="arch-desc">Single YAML governs all 13 pods. Circuit breakers. COCOA self-evolving rules. Aadhaar/PAN/PII blocked before AI providers.</div>
-        </div>
-      </div>
-      <div class="arch-item">
-        <div class="arch-icon">🔀</div>
-        <div>
-          <div class="arch-title">MIT EnCompass Branching</div>
-          <div class="arch-desc">N parallel function branches, LLM-scored. 15–40% accuracy gain on complex tasks. DAN runs 3-branch, Aurora runs 2-branch.</div>
-        </div>
-      </div>
-      <div class="arch-item">
-        <div class="arch-icon">🌐</div>
-        <div>
-          <div class="arch-title">Multi-Region Auto-Scale</div>
-          <div class="arch-desc">Singapore + Oregon. Auto-scale 1→3. Region-aware client selects nearest node. Indian visitor → SG (&lt;30ms). US → OR (&lt;50ms).</div>
-        </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
       </div>
     </div>
   </div>
 
-  <!-- CROSS-POD SIGNALS -->
-  <div class="section-divider"><span>The Nervous System</span></div>
+  <!-- FORM CONTAINER -->
+  <div class="form-container" id="formContainer">
 
-  <div class="signals-section fade-in-section">
-    <h2>Cross-pod intelligence transfer</h2>
-    <p class="sub">When one pod learns, all pods benefit.</p>
+    <!-- STEP 1: WHO ARE YOU -->
+    <div class="step active" id="step1">
+      <div class="step-header">
+        <div class="step-num">Step 01 / 03</div>
+        <div class="step-title">Who are you?</div>
+        <div class="step-desc">Basic details so we can send you something actually useful.</div>
+      </div>
 
-    <div class="signal-list">
-      <div class="signal-item">
-        <span class="signal-from">JANUS</span>
-        <span class="signal-arrow">——▶</span>
-        <span class="signal-to">AURORA</span>
-        <span style="color:var(--text); font-size:12px;">Bull market detected → outreach intensity ×1.5</span>
-        <span class="signal-desc">AUTOMATIC · NO HUMAN</span>
+      <div class="two-col">
+        <div class="field" id="f-name">
+          <label>Your Name</label>
+          <input type="text" id="inp-name" placeholder="Rahul Sharma" />
+          <div class="field-error">Name is required</div>
+        </div>
+        <div class="field" id="f-email">
+          <label>Work Email</label>
+          <input type="email" id="inp-email" placeholder="rahul@company.com" />
+          <div class="field-error">Valid email required</div>
+        </div>
       </div>
-      <div class="signal-item">
-        <span class="signal-from">SYNTROPY</span>
-        <span class="signal-arrow">——▶</span>
-        <span class="signal-to">AURORA</span>
-        <span style="color:var(--text); font-size:12px;">Student ERS ≥75 → scored as warm hire lead +15</span>
-        <span class="signal-desc">ZERO SDR IN FUNNEL</span>
+
+      <div class="two-col">
+        <div class="field" id="f-company">
+          <label>Company / Business Name</label>
+          <input type="text" id="inp-company" placeholder="Sharma & Co." />
+          <div class="field-error">Company name required</div>
+        </div>
+        <div class="field">
+          <label>Your Role</label>
+          <select id="inp-role">
+            <option value="">Select role...</option>
+            <option>Founder / Owner</option>
+            <option>CEO / MD</option>
+            <option>Operations Manager</option>
+            <option>Sales Head</option>
+            <option>IT Manager</option>
+            <option>Product Manager</option>
+            <option>Developer / Engineer</option>
+            <option>Student / Researcher</option>
+            <option>Other</option>
+          </select>
+        </div>
       </div>
-      <div class="signal-item">
-        <span class="signal-from">AURORA</span>
-        <span class="signal-arrow">——▶</span>
-        <span class="signal-to">SYNTROPY</span>
-        <span style="color:var(--text); font-size:12px;">Sales call reveals skill gap → resource generated</span>
-        <span class="signal-desc">SAME DAY</span>
+
+      <div class="field">
+        <label>Industry</label>
+        <select id="inp-industry">
+          <option value="">Select industry...</option>
+          <option>Manufacturing</option>
+          <option>Retail / E-commerce</option>
+          <option>Education / Ed-tech</option>
+          <option>IT / Software Services</option>
+          <option>Finance / Fintech</option>
+          <option>Healthcare</option>
+          <option>Real Estate</option>
+          <option>Logistics / Supply Chain</option>
+          <option>Marketing / Agency</option>
+          <option>Other</option>
+        </select>
       </div>
-      <div class="signal-item">
-        <span class="signal-from">DAN</span>
-        <span class="signal-arrow">——▶</span>
-        <span class="signal-to">SENTINEL</span>
-        <span style="color:var(--text); font-size:12px;">IT incident detected → document analysis triggered</span>
-        <span class="signal-desc">REAL-TIME</span>
+
+      <div class="nav-row">
+        <button class="btn-next" onclick="goTo(2)">Next — Your Pain Points</button>
       </div>
+    </div>
+
+    <!-- STEP 2: PAIN POINTS -->
+    <div class="step" id="step2">
+      <div class="step-header">
+        <div class="step-num">Step 02 / 03</div>
+        <div class="step-title">Where does your business bleed time?</div>
+        <div class="step-desc">Select every area where manual work, errors, or delays are costing you. Be honest — this shapes what we build.</div>
+      </div>
+
+      <div class="field">
+        <label>Biggest Pain Areas (select all that apply)</label>
+        <div class="checkbox-grid" id="painGrid">
+          <label class="check-item" onclick="toggleCheck(this)">
+            <input type="checkbox" value="sales_followup">
+            <div class="check-box">✓</div>
+            <div class="check-label">Sales follow-ups & lead management</div>
+          </label>
+          <label class="check-item" onclick="toggleCheck(this)">
+            <input type="checkbox" value="it_incidents">
+            <div class="check-box">✓</div>
+            <div class="check-label">IT incidents & system downtime</div>
+          </label>
+          <label class="check-item" onclick="toggleCheck(this)">
+            <input type="checkbox" value="data_reporting">
+            <div class="check-box">✓</div>
+            <div class="check-label">Data reporting & analytics</div>
+          </label>
+          <label class="check-item" onclick="toggleCheck(this)">
+            <input type="checkbox" value="document_processing">
+            <div class="check-box">✓</div>
+            <div class="check-label">Document processing & contracts</div>
+          </label>
+          <label class="check-item" onclick="toggleCheck(this)">
+            <input type="checkbox" value="customer_support">
+            <div class="check-box">✓</div>
+            <div class="check-label">Customer support & queries</div>
+          </label>
+          <label class="check-item" onclick="toggleCheck(this)">
+            <input type="checkbox" value="training_onboarding">
+            <div class="check-box">✓</div>
+            <div class="check-label">Staff training & onboarding</div>
+          </label>
+          <label class="check-item" onclick="toggleCheck(this)">
+            <input type="checkbox" value="workflow_automation">
+            <div class="check-box">✓</div>
+            <div class="check-label">Repetitive workflows & manual tasks</div>
+          </label>
+          <label class="check-item" onclick="toggleCheck(this)">
+            <input type="checkbox" value="market_intelligence">
+            <div class="check-box">✓</div>
+            <div class="check-label">Market research & competitive intel</div>
+          </label>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:20px;">
+        <label>Describe your biggest operational problem in your own words</label>
+        <textarea id="inp-pain" placeholder="e.g. Our sales team spends 3 hours a day manually following up with leads on WhatsApp. Half of them fall through the cracks and we have no visibility into what's happening..."></textarea>
+      </div>
+
+      <div class="field">
+        <label>What have you already tried?</label>
+        <textarea id="inp-tried" placeholder="e.g. We tried a CRM but nobody used it. Tried hiring a VA but too expensive. Currently using Excel and WhatsApp groups..." style="min-height:80px;"></textarea>
+      </div>
+
+      <div class="nav-row">
+        <button class="btn-back" onclick="goTo(1)">← Back</button>
+        <button class="btn-next" onclick="goTo(3)">Next — Scale & Budget</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: SCALE & BUDGET -->
+    <div class="step" id="step3">
+      <div class="step-header">
+        <div class="step-num">Step 03 / 03</div>
+        <div class="step-title">Scale, urgency & budget.</div>
+        <div class="step-desc">This helps us prioritise and match you to the right Nexus pod.</div>
+      </div>
+
+      <div class="field">
+        <label>Team Size</label>
+        <div class="radio-stack">
+          <label class="radio-item" onclick="selectRadio(this, 'teamSize')">
+            <input type="radio" name="teamSize" value="solo">
+            <div class="radio-dot"></div>
+            <div class="radio-content">
+              <div class="radio-title">Solo / Freelancer</div>
+              <div class="radio-sub">Just me running everything</div>
+            </div>
+          </label>
+          <label class="radio-item" onclick="selectRadio(this, 'teamSize')">
+            <input type="radio" name="teamSize" value="2-10">
+            <div class="radio-dot"></div>
+            <div class="radio-content">
+              <div class="radio-title">2–10 people</div>
+              <div class="radio-sub">Small team, wearing many hats</div>
+            </div>
+          </label>
+          <label class="radio-item" onclick="selectRadio(this, 'teamSize')">
+            <input type="radio" name="teamSize" value="11-50">
+            <div class="radio-dot"></div>
+            <div class="radio-content">
+              <div class="radio-title">11–50 people</div>
+              <div class="radio-sub">Growing business, some structure</div>
+            </div>
+          </label>
+          <label class="radio-item" onclick="selectRadio(this, 'teamSize')">
+            <input type="radio" name="teamSize" value="50+">
+            <div class="radio-dot"></div>
+            <div class="radio-content">
+              <div class="radio-title">50+ people</div>
+              <div class="radio-sub">Enterprise / large organisation</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:20px;">
+        <label>Monthly Budget for AI Automation (₹)</label>
+        <div class="range-value" id="budgetDisplay">₹5,000</div>
+        <div class="range-wrap">
+          <input type="range" id="budgetRange" min="0" max="10" value="2"
+            oninput="updateBudget(this.value)">
+          <div class="range-labels">
+            <span>₹0</span>
+            <span>₹1,500</span>
+            <span>₹5,000</span>
+            <span>₹25,000</span>
+            <span>₹1L+</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:20px;">
+        <label>How urgently do you need this solved?</label>
+        <div class="radio-stack">
+          <label class="radio-item" onclick="selectRadio(this, 'urgency')">
+            <input type="radio" name="urgency" value="now">
+            <div class="radio-dot"></div>
+            <div class="radio-content">
+              <div class="radio-title">🔥 Right now — it's costing me daily</div>
+              <div class="radio-sub">I need a solution within weeks</div>
+            </div>
+          </label>
+          <label class="radio-item" onclick="selectRadio(this, 'urgency')">
+            <input type="radio" name="urgency" value="soon">
+            <div class="radio-dot"></div>
+            <div class="radio-content">
+              <div class="radio-title">📅 Soon — planning for next quarter</div>
+              <div class="radio-sub">Evaluating options over 1–3 months</div>
+            </div>
+          </label>
+          <label class="radio-item" onclick="selectRadio(this, 'urgency')">
+            <input type="radio" name="urgency" value="exploring">
+            <div class="radio-dot"></div>
+            <div class="radio-content">
+              <div class="radio-title">🔍 Just exploring AI possibilities</div>
+              <div class="radio-sub">Curious, no immediate timeline</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:20px;">
+        <label>Anything else you want us to know?</label>
+        <textarea id="inp-extra" placeholder="Previous tools tried, specific integrations needed, or anything that would help us understand your situation better..." style="min-height:80px;"></textarea>
+      </div>
+
+      <div class="nav-row">
+        <button class="btn-back" onclick="goTo(2)">← Back</button>
+        <button class="btn-submit" onclick="submitForm()">Submit — Get My Analysis ✓</button>
+      </div>
+    </div>
+
+  </div><!-- /form-container -->
+
+  <!-- SUCCESS SCREEN -->
+  <div class="success-screen" id="successScreen">
+    <div class="success-icon">✓</div>
+    <h2>You're in the system.</h2>
+    <p>We've received your submission and will send a personalised Nexus pod recommendation to your email within 24 hours. No generic replies — actual analysis of your pain points.</p>
+
+    <div class="summary-box" id="summaryBox"></div>
+
+    <div class="share-row">
+      <a class="share-btn" href="https://www.linkedin.com/sharing/share-offsite/?url=https://www.shango.in/waitlist" target="_blank">Share on LinkedIn</a>
+      <a class="share-btn" href="https://twitter.com/intent/tweet?text=Just%20signed%20up%20for%20early%20access%20to%20%40ShangoIndia%20Nexus%20%E2%80%94%20a%20self-evolving%20AI%20OS%20built%20in%20Kolkata.%20Check%20it%20out%3A%20https%3A%2F%2Fwww.shango.in%2Fwaitlist" target="_blank">Share on Twitter</a>
+      <button class="share-btn" onclick="copyLink()">Copy Link</button>
     </div>
   </div>
 
-  <!-- PRICING -->
-  <div class="section-divider"><span>Pricing</span></div>
+</div><!-- /wrap -->
 
-  <div class="pricing-section fade-in-section">
-    <h2>Enterprise AI. SMB prices.</h2>
-    <p class="sub">Starting at ₹1,500/month. No lock-in on entry plans.</p>
-
-    <div class="pricing-grid">
-      <div class="price-card">
-        <span class="price-tag-label">Entry</span>
-        <div class="price-name">Shango Automation</div>
-        <div class="price-inr">₹1,500</div>
-        <div class="price-period">/month</div>
-        <div class="price-desc">Webhook automation engine. 3 active workflows. Slack + Brevo integration.</div>
-      </div>
-      <div class="price-card featured">
-        <span class="price-tag-label">⭐ Popular</span>
-        <div class="price-name">Aurora Pro</div>
-        <div class="price-inr">₹8,200</div>
-        <div class="price-period">/month</div>
-        <div class="price-desc">AI voice sales agent. Self-improving scripts. Autonomous prospect hunting every 6 hours.</div>
-      </div>
-      <div class="price-card">
-        <span class="price-tag-label">Bundle</span>
-        <div class="price-name">Nexus Pro</div>
-        <div class="price-inr">₹24,900</div>
-        <div class="price-period">/month</div>
-        <div class="price-desc">All 13 pods. Evolution dashboard. Priority support. Cross-pod intelligence fully active.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- BOTTOM CTA -->
-  <div class="waitlist-section fade-in-section" style="margin-bottom:80px; text-align:center;">
-    <h2 style="font-size:32px; font-weight:800; letter-spacing:-1px; margin-bottom:12px;">Follow the build.</h2>
-    <p style="color:var(--muted); font-size:15px; margin-bottom:32px;">Architecture decisions, errors, revenue milestones. No polish. Just the actual engineering.</p>
-    <span class="waitlist-label">→ Join the waitlist for early access + weekly build notes</span>
-    <div class="form-row" style="max-width:500px; margin:0 auto;">
-      <input type="email" id="emailInput2" placeholder="your@email.com" />
-      <button onclick="handleSignup2()">Join Waitlist</button>
-    </div>
-    <div class="success-msg" id="successMsg2"></div>
-  </div>
-
-</div><!-- /container -->
-
-<!-- FOOTER -->
 <footer>
-  <div class="container">
-    <div class="footer-logo">Shango India</div>
-    <div class="footer-links">
-      <a href="https://github.com/Shangoin/shango-nexus-workspace" target="_blank">GitHub</a>
-      <a href="https://shango.in/nexus" target="_blank">Live Dashboard</a>
-      <a href="mailto:team@shango.in">team@shango.in</a>
-    </div>
-    <div class="footer-note">Built in Kolkata, India · 116/116 tests passing · Deployed Singapore + Oregon</div>
+  <div class="wrap">
+    <span>Shango India · Kolkata · </span>
+    <a href="mailto:team@shango.in">team@shango.in</a>
+    <span> · </span>
+    <a href="https://github.com/Shangoin/shango-nexus-workspace" target="_blank">GitHub</a>
+    <span> · 116/116 tests passing · Deployed SG + US</span>
   </div>
 </footer>
 
 <script>
-  // POD DATA
-  const pods = [
-    { name: "Aurora", role: "AI Sales Agent", pct: 70 },
-    { name: "Janus", role: "Trading Brain", pct: 75 },
-    { name: "DAN", role: "IT Swarm", pct: 65 },
-    { name: "Syntropy War Room", role: "Exam Arena", pct: 85 },
-    { name: "Ralph", role: "PRD Forge", pct: 95 },
-    { name: "Sentinel Prime", role: "Doc Intelligence", pct: 90 },
-    { name: "Sentinel Researcher", role: "Research Eye", pct: 45 },
-    { name: "Shango Automation", role: "Webhook Engine", pct: 90 },
-    { name: "Syntropy Lite", role: "KG Brain", pct: 70 },
-    { name: "Syntropy", role: "Tutor Organ", pct: 85 },
-    { name: "Syntropy Scaffold", role: "Launch Pad", pct: 75 },
-    { name: "Viral Music", role: "Creative Limb", pct: 85 },
-    { name: "Syntropy Launch", role: "Deployer", pct: 95 },
+  let currentStep = 1;
+  const totalSteps = 3;
+
+  const budgetValues = [
+    '₹0 — Just exploring',
+    '₹500 – ₹1,500/mo',
+    '₹1,500 – ₹5,000/mo',
+    '₹5,000 – ₹10,000/mo',
+    '₹10,000 – ₹25,000/mo',
+    '₹25,000 – ₹50,000/mo',
+    '₹50,000 – ₹1,00,000/mo',
+    '₹1,00,000 – ₹2,50,000/mo',
+    '₹2,50,000 – ₹5,00,000/mo',
+    '₹5,00,000+/mo',
+    '₹10,00,000+/mo'
   ];
 
-  const grid = document.getElementById('podGrid');
-  pods.forEach(pod => {
-    const card = document.createElement('div');
-    card.className = 'pod-card';
-    card.innerHTML = `
-      <div class="pod-name">${pod.name}</div>
-      <div class="pod-role">${pod.role}</div>
-      <div class="pod-bar-wrap"><div class="pod-bar" style="width:0%" data-width="${pod.pct}%"></div></div>
-      <div class="pod-pct">${pod.pct}%</div>
+  function updateBudget(val) {
+    document.getElementById('budgetDisplay').textContent = budgetValues[val];
+  }
+
+  updateBudget(2);
+
+  function toggleCheck(el) {
+    el.classList.toggle('selected');
+    el.querySelector('input').checked = el.classList.contains('selected');
+  }
+
+  function selectRadio(el, name) {
+    document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+      r.closest('.radio-item').classList.remove('selected');
+    });
+    el.classList.add('selected');
+    el.querySelector('input').checked = true;
+  }
+
+  function updateProgress(step) {
+    const pct = ((step - 1) / totalSteps) * 100;
+    document.getElementById('progressFill').style.width = pct + '%';
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById('pl-' + i);
+      el.classList.remove('active', 'done');
+      if (i < step) el.classList.add('done');
+      else if (i === step) el.classList.add('active');
+    }
+  }
+
+  function goTo(step) {
+    // Validate step 1
+    if (step > 1 && currentStep === 1) {
+      let valid = true;
+      const name = document.getElementById('inp-name').value.trim();
+      const email = document.getElementById('inp-email').value.trim();
+      const company = document.getElementById('inp-company').value.trim();
+
+      if (!name) { document.getElementById('f-name').classList.add('has-error'); valid = false; }
+      else document.getElementById('f-name').classList.remove('has-error');
+
+      if (!email || !email.includes('@')) { document.getElementById('f-email').classList.add('has-error'); valid = false; }
+      else document.getElementById('f-email').classList.remove('has-error');
+
+      if (!company) { document.getElementById('f-company').classList.add('has-error'); valid = false; }
+      else document.getElementById('f-company').classList.remove('has-error');
+
+      if (!valid) return;
+    }
+
+    document.getElementById('step' + currentStep).classList.remove('active');
+    currentStep = step;
+    document.getElementById('step' + currentStep).classList.add('active');
+    updateProgress(step);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function getCheckedPains() {
+    return Array.from(document.querySelectorAll('#painGrid .check-item.selected input'))
+      .map(i => i.value).join(', ');
+  }
+
+  function getRadioValue(name) {
+    const checked = document.querySelector(`input[name="${name}"]:checked`);
+    return checked ? checked.value : 'Not specified';
+  }
+
+  function submitForm() {
+    const data = {
+      name: document.getElementById('inp-name').value.trim(),
+      email: document.getElementById('inp-email').value.trim(),
+      company: document.getElementById('inp-company').value.trim(),
+      role: document.getElementById('inp-role').value,
+      industry: document.getElementById('inp-industry').value,
+      pain_areas: getCheckedPains(),
+      pain_description: document.getElementById('inp-pain').value.trim(),
+      already_tried: document.getElementById('inp-tried').value.trim(),
+      team_size: getRadioValue('teamSize'),
+      budget: budgetValues[document.getElementById('budgetRange').value],
+      urgency: getRadioValue('urgency'),
+      extra_notes: document.getElementById('inp-extra').value.trim(),
+      submitted_at: new Date().toISOString(),
+      source: 'shango.in/waitlist'
+    };
+
+    // POST to Web3Forms
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        access_key: 'YOUR_WEB3FORMS_ACCESS_KEY', // ← Replace this
+        subject: `[Shango Nexus] New Lead: ${data.name} — ${data.company} (${data.urgency})`,
+        from_name: 'Shango Nexus Waitlist',
+        name: data.name,
+        email: data.email,
+        message: `
+NEW LEAD SUBMISSION
+===================
+Name: ${data.name}
+Email: ${data.email}
+Company: ${data.company}
+Role: ${data.role}
+Industry: ${data.industry}
+
+PAIN AREAS: ${data.pain_areas}
+
+PAIN DESCRIPTION:
+${data.pain_description}
+
+ALREADY TRIED:
+${data.already_tried}
+
+SCALE:
+Team Size: ${data.team_size}
+Budget: ${data.budget}
+Urgency: ${data.urgency}
+
+EXTRA NOTES:
+${data.extra_notes}
+
+Submitted: ${data.submitted_at}
+        `.trim()
+      })
+    }).catch(err => console.error('Form submission error:', err));
+
+    // Show success regardless (don't block UX on network)
+    showSuccess(data);
+  }
+
+  function showSuccess(data) {
+    document.getElementById('formContainer').style.display = 'none';
+    document.querySelector('.progress-wrap').style.display = 'none';
+
+    // Fill summary
+    const summary = document.getElementById('summaryBox');
+    summary.innerHTML = `
+      <div class="summary-row"><span class="summary-key">Name</span><span class="summary-val">${data.name}</span></div>
+      <div class="summary-row"><span class="summary-key">Company</span><span class="summary-val">${data.company}</span></div>
+      <div class="summary-row"><span class="summary-key">Pain Areas</span><span class="summary-val">${data.pain_areas || 'Not specified'}</span></div>
+      <div class="summary-row"><span class="summary-key">Team Size</span><span class="summary-val">${data.team_size}</span></div>
+      <div class="summary-row"><span class="summary-key">Budget</span><span class="summary-val">${data.budget}</span></div>
+      <div class="summary-row"><span class="summary-key">Urgency</span><span class="summary-val">${data.urgency}</span></div>
+      <div class="summary-row"><span class="summary-key">Analysis to</span><span class="summary-val">${data.email}</span></div>
     `;
-    grid.appendChild(card);
-  });
 
-  // INTERSECTION OBSERVER FOR ANIMATIONS
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        // Animate pod bars when visible
-        const bars = entry.target.querySelectorAll('.pod-bar');
-        bars.forEach(bar => {
-          setTimeout(() => { bar.style.width = bar.dataset.width; }, 100);
-        });
-      }
-    });
-  }, { threshold: 0.1 });
-
-  document.querySelectorAll('.fade-in-section').forEach(el => observer.observe(el));
-
-  // Also trigger bars if they're already visible on load
-  setTimeout(() => {
-    document.querySelectorAll('.pod-bar').forEach(bar => {
-      const rect = bar.getBoundingClientRect();
-      if (rect.top < window.innerHeight) bar.style.width = bar.dataset.width;
-    });
-  }, 500);
-
-  // FORM HANDLERS
-  function handleSignup() {
-    const email = document.getElementById('emailInput').value.trim();
-    if (!email || !email.includes('@')) { 
-      document.getElementById('emailInput').style.borderColor = 'var(--accent)'; 
-      return; 
-    }
-    // In production: POST to your Supabase waitlist table
-    // fetch('https://nexus-backend-sg.onrender.com/api/waitlist', { method:'POST', body: JSON.stringify({email}), headers:{'Content-Type':'application/json'} })
-    const msg = document.getElementById('successMsg');
-    msg.style.display = 'block';
-    msg.textContent = `✓ ${email} added. Welcome to the Nexus waitlist.`;
-    document.getElementById('emailInput').value = '';
+    document.getElementById('successScreen').classList.add('show');
+    updateProgress(4);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function handleSignup2() {
-    const email = document.getElementById('emailInput2').value.trim();
-    if (!email || !email.includes('@')) {
-      document.getElementById('emailInput2').style.borderColor = 'var(--accent)';
-      return;
-    }
-    const msg = document.getElementById('successMsg2');
-    msg.style.display = 'block';
-    msg.textContent = `✓ ${email} added. You'll hear from us soon.`;
-    document.getElementById('emailInput2').value = '';
+  function copyLink() {
+    navigator.clipboard.writeText('https://www.shango.in/waitlist');
+    event.target.textContent = 'Copied ✓';
+    setTimeout(() => { event.target.textContent = 'Copy Link'; }, 2000);
   }
-
-  // ENTER KEY SUPPORT
-  document.getElementById('emailInput').addEventListener('keydown', e => { if(e.key === 'Enter') handleSignup(); });
-  document.getElementById('emailInput2').addEventListener('keydown', e => { if(e.key === 'Enter') handleSignup2(); });
 </script>
-
 </body>
 </html>
